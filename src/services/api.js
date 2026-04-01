@@ -1,9 +1,8 @@
 import axios from 'axios';
 
 // ================= BASE URL =================
-// IMPORTANT: DO NOT ADD /api HERE
-const BASE_URL =
-    process.env.REACT_APP_API_URL || 'http://localhost:8000';
+// ENV handles local vs production automatically
+const BASE_URL = process.env.REACT_APP_API_URL;
 
 // VERSIONED API
 const API_V1 = `${BASE_URL}/api/v1`;
@@ -11,7 +10,22 @@ const API_V1 = `${BASE_URL}/api/v1`;
 // ================= CACHE =================
 const cache = new Map();
 
-// ================= AXIOS INSTANCE =================
+// ================= REFRESH CONTROL =================
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+    failedQueue.forEach(prom => {
+        if (error) {
+            prom.reject(error);
+        } else {
+            prom.resolve(token);
+        }
+    });
+    failedQueue = [];
+};
+
+// ================= AXIOS SERVICE =================
 class APIService {
     constructor() {
         this.api = axios.create({
@@ -47,7 +61,7 @@ class APIService {
                     return Promise.reject(error);
                 }
 
-                // TOKEN REFRESH LOGIC
+                // ================= TOKEN REFRESH =================
                 if (
                     error.response.status === 401 &&
                     !originalRequest._retry &&
@@ -62,6 +76,18 @@ class APIService {
                         return Promise.reject(error);
                     }
 
+                    // 🔥 IF ALREADY REFRESHING → QUEUE REQUEST
+                    if (isRefreshing) {
+                        return new Promise((resolve, reject) => {
+                            failedQueue.push({ resolve, reject });
+                        }).then((token) => {
+                            originalRequest.headers.Authorization = `Bearer ${token}`;
+                            return this.api(originalRequest);
+                        });
+                    }
+
+                    isRefreshing = true;
+
                     try {
                         const res = await axios.post(
                             `${BASE_URL}/api/token/refresh/`,
@@ -72,13 +98,21 @@ class APIService {
 
                         sessionStorage.setItem('access_token', newAccess);
 
+                        // update headers
                         this.api.defaults.headers.Authorization = `Bearer ${newAccess}`;
                         originalRequest.headers.Authorization = `Bearer ${newAccess}`;
 
+                        processQueue(null, newAccess);
+
                         return this.api(originalRequest);
+
                     } catch (err) {
+                        processQueue(err, null);
                         this.logout();
                         return Promise.reject(err);
+
+                    } finally {
+                        isRefreshing = false;
                     }
                 }
 
@@ -95,12 +129,11 @@ class APIService {
         return APIService.instance;
     }
 
-    // ================= CACHE HANDLER =================
+    // ================= CACHE =================
     getCacheKey(url, params) {
         return `${url}_${JSON.stringify(params)}`;
     }
 
-    // ================= GENERIC METHODS =================
     async get(url, params = {}, useCache = false) {
         const key = this.getCacheKey(url, params);
 
@@ -195,14 +228,6 @@ class APIService {
         return this.post('/organization/users/change_my_password/', { password });
     }
 
-    forgotPassword(email) {
-        return this.post('/organization/users/forgot_password/', { email });
-    }
-
-    resetPassword(data) {
-        return this.post('/organization/users/reset_password/', data);
-    }
-
     // ================= ATTENDANCE =================
     getDailySummary() {
         return this.get('/attendance/punches/daily_summary/', {}, true);
@@ -218,19 +243,6 @@ class APIService {
 
     createPunchRecord(data) {
         return this.post('/attendance/punches/', data);
-    }
-
-    // ================= CORRECTIONS =================
-    getCorrections() {
-        return this.get('/attendance/corrections/');
-    }
-
-    createCorrection(data) {
-        return this.post('/attendance/corrections/', data);
-    }
-
-    updateCorrection(id, data) {
-        return this.patch(`/attendance/corrections/${id}/`, data);
     }
 
     // ================= ALLOWANCE =================
