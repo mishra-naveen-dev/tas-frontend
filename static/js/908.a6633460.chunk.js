@@ -1,2 +1,0 @@
-"use strict";(globalThis.webpackChunktraveling_allowance_system=globalThis.webpackChunktraveling_allowance_system||[]).push([[908],{4908(e,a,l){l.r(a),l.d(a,{default:()=>n});l(5043);var s=l(3550),o=l(4528),r=l(579);const n=()=>{const{user:e,userRole:a,loading:l}=(0,o.A)();return l?null:e?"EMPLOYEE"===a?(0,r.jsx)(s.C5,{to:"/employee/dashboard",replace:!0}):"ADMIN"===a||"SUPER_ADMIN"===a?(0,r.jsx)(s.C5,{to:"/admin/dashboard",replace:!0}):(0,r.jsx)(s.C5,{to:"/login",replace:!0}):(0,r.jsx)(s.C5,{to:"/login",replace:!0})}}}]);
-//# sourceMappingURL=908.a6633460.chunk.js.map
