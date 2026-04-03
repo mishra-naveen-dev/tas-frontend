@@ -1,19 +1,19 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import { ThemeProvider, CssBaseline } from '@mui/material';
-import theme from './theme';
-import { NotificationProvider } from './contexts/NotificationContext';
+import { NotificationProvider } from 'shared/components/NotificationContext';
+import { HashRouter } from 'react-router-dom';
+
+console.log("APP STARTED");
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 
 root.render(
   <React.StrictMode>
-    <NotificationProvider>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
+    <HashRouter>
+      <NotificationProvider>
         <App />
-      </ThemeProvider>
-    </NotificationProvider>
+      </NotificationProvider>
+    </HashRouter>
   </React.StrictMode>
 );
