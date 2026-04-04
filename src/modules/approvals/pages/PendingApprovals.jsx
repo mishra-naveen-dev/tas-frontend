@@ -62,8 +62,8 @@ const PendingApprovals = () => {
             setActionLoading(true);
             await api.approveAllowanceRequest(id);
             fetchPending();
-        } catch {
-            setError('Failed to approve request');
+        } catch (err) {
+            setError(err?.response?.data?.error || 'Failed to approve request');
         } finally {
             setActionLoading(false);
         }
@@ -86,8 +86,8 @@ const PendingApprovals = () => {
             setRejectionReason('');
             fetchPending();
 
-        } catch {
-            setError('Failed to reject request');
+        } catch (err) {
+            setError(err?.response?.data?.error || 'Failed to reject request');
         } finally {
             setActionLoading(false);
         }
@@ -105,7 +105,7 @@ const PendingApprovals = () => {
 
     // ================= SUMMARY =================
     const totalAmount = allowances.reduce(
-        (sum, a) => sum + safe(a.total_amount),
+        (sum, a) => sum + safe(a.amount),
         0
     );
 
@@ -131,7 +131,7 @@ const PendingApprovals = () => {
 
             {error && <Alert severity="error">{error}</Alert>}
 
-            {/* ================= SUMMARY CARDS ================= */}
+            {/* ================= SUMMARY ================= */}
             <Grid container spacing={3} sx={{ mb: 2 }}>
                 <Grid item xs={12} md={4}>
                     <Card>
@@ -214,7 +214,7 @@ const PendingApprovals = () => {
                                     </TableCell>
 
                                     <TableCell>
-                                        ₹ {safe(a.total_amount).toFixed(2)}
+                                        ₹ {safe(a.amount).toFixed(2)}
                                     </TableCell>
 
                                     <TableCell>
@@ -225,13 +225,15 @@ const PendingApprovals = () => {
                                         />
                                     </TableCell>
 
+                                    {/* ✅ FIXED BUTTONS */}
                                     <TableCell align="center">
+
                                         <Button
-                                            size="small"
-                                            color="success"
                                             variant="contained"
+                                            color="success"
+                                            size="small"
                                             onClick={() => handleApprove(a.id)}
-                                            disabled={actionLoading}
+                                            disabled={a.status !== 'PENDING' || actionLoading}
                                         >
                                             Approve
                                         </Button>
@@ -242,9 +244,11 @@ const PendingApprovals = () => {
                                             variant="outlined"
                                             sx={{ ml: 1 }}
                                             onClick={() => handleRejectClick(a)}
+                                            disabled={a.status !== 'PENDING' || actionLoading}
                                         >
                                             Reject
                                         </Button>
+
                                     </TableCell>
 
                                 </TableRow>
@@ -254,7 +258,7 @@ const PendingApprovals = () => {
                 </Table>
             </TableContainer>
 
-            {/* ================= REJECT DIALOG ================= */}
+            {/* ================= DIALOG ================= */}
             <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
                 <DialogTitle>Reject Request</DialogTitle>
 

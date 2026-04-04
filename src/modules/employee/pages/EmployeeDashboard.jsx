@@ -1,17 +1,17 @@
-import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback, Suspense } from 'react';
 import {
     Grid, Card, CardContent, Typography, Alert, Box,
     Divider, Table, TableHead, TableRow, TableCell,
-    TableBody, Chip, Skeleton, LinearProgress
+    TableBody, Chip, Skeleton
 } from '@mui/material';
 
 import api from 'core/services/api';
-import MapView from 'modules/attendance/components/MapView';
 import DistanceChart from 'modules/attendance/components/DistanceChart';
 import AllowanceTrendChart from 'modules/employee/components/AllowanceTrendChart';
-
 import { useAuth } from 'modules/auth/contexts/AuthContext';
 import PunchButton from 'modules/attendance/components/PunchButton';
+
+const MapView = React.lazy(() => import('modules/attendance/components/MapView'));
 
 const REFRESH_INTERVAL = 30000;
 
@@ -32,7 +32,7 @@ const EmployeeDashboard = () => {
 
     // ================= HELPERS =================
     const safe = (v) => Number(v) || 0;
-    const safeDistance = (v) => (v ? Number(v).toFixed(2) : "0.00");
+    const safeDistance = (v) => Number(v || 0).toFixed(2);
 
     // ================= FETCH =================
     const fetchData = useCallback(async () => {
@@ -40,21 +40,29 @@ const EmployeeDashboard = () => {
         isFetching.current = true;
 
         try {
-            const [summary, punchData, allowanceData] = await Promise.all([
-                api.getDailySummary(),
-                api.getTodayPunches(),
-                api.getAllowanceRequests()
+            setError(null);
+
+            const [summaryRes, punchRes, allowanceRes] = await Promise.all([
+                api.getDailySummary().catch(() => ({ data: {} })),
+                api.getTodayPunches().catch(() => ({ data: [] })),
+                api.getAllowanceRequests().catch(() => ({ data: [] }))
             ]);
 
-            setData(summary?.data || {});
+            const summary = summaryRes?.data || {};
+            const punchList = punchRes?.data?.results || punchRes?.data || [];
+            const allowanceList = allowanceRes?.data?.results || allowanceRes?.data || [];
 
-            const sortedPunches = (punchData?.data?.results || punchData?.data || [])
-                .filter(p => p.latitude && p.longitude)
+            // ================= SET SUMMARY =================
+            setData(summary);
+
+            // ================= SORT PUNCHES =================
+            const sortedPunches = punchList
+                .filter(p => p?.latitude && p?.longitude)
                 .sort((a, b) => new Date(b.punched_at) - new Date(a.punched_at));
 
             setPunches(sortedPunches);
 
-            // ✅ DISBURSEMENT CALCULATION (FIXED)
+            // ================= DISBURSEMENT =================
             const totalDisbursement = sortedPunches.reduce(
                 (sum, p) =>
                     p.visit_type === 'DISBURSEMENT'
@@ -65,23 +73,18 @@ const EmployeeDashboard = () => {
 
             setDisbursement(totalDisbursement);
 
-            let allowanceList = allowanceData?.data?.results || allowanceData?.data || [];
-
-            if (!allowanceList.length) {
-                allowanceList = [
-                    { travel_date: "2026-04-01", total_amount: 500, total_distance: 5 },
-                    { travel_date: "2026-04-02", total_amount: 1200, total_distance: 10 },
-                    { travel_date: "2026-04-03", total_amount: 800, total_distance: 7 },
-                ];
-            }
-
-            setAllowances(allowanceList);
-
-            setError(null);
+            // ================= ALLOWANCE =================
+            setAllowances(allowanceList.length ? allowanceList : []);
 
         } catch (err) {
-            console.error("Dashboard Error:", err?.response?.data);
+
+            console.error("Dashboard Error:", {
+                message: err?.message,
+                response: err?.response?.data
+            });
+
             setError('Failed to load dashboard');
+
         } finally {
             setLoading(false);
             isFetching.current = false;
@@ -91,7 +94,6 @@ const EmployeeDashboard = () => {
     // ================= AUTO REFRESH =================
     useEffect(() => {
         fetchData();
-
         intervalRef.current = setInterval(fetchData, REFRESH_INTERVAL);
         return () => clearInterval(intervalRef.current);
     }, [fetchData]);
@@ -105,30 +107,11 @@ const EmployeeDashboard = () => {
         disbursement: safeDistance(disbursement),
     }), [data, disbursement]);
 
-    // ================= PRODUCTIVITY =================
-    // const productivity = useMemo(() => {
-    //     const score = (kpi.punchCount * 10 + Number(kpi.distance)) / 2;
-    //     return Math.min(100, score);
-    // }, [kpi]);
-
-    // ================= LABEL =================
-    const formatPunchLabel = (p, index) => {
-        if (index === 0) return 'Latest Punch';
-        if (index === punches.length - 1) return 'Starting Punch';
-        return 'Activity';
-    };
-
     // ================= CHART DATA =================
     const chartData = useMemo(() => {
         return data?.weekly_data?.length
             ? data.weekly_data
-            : [
-                { day: 'Mon', distance: 5 },
-                { day: 'Tue', distance: 8 },
-                { day: 'Wed', distance: 6 },
-                { day: 'Thu', distance: 10 },
-                { day: 'Fri', distance: 7 }
-            ];
+            : [];
     }, [data]);
 
     const allowanceChartData = useMemo(() => {
@@ -139,8 +122,14 @@ const EmployeeDashboard = () => {
         }));
     }, [allowances]);
 
-    // ================= LATEST =================
     const latestPunches = useMemo(() => punches.slice(0, 8), [punches]);
+
+    // ================= LABEL =================
+    const formatPunchLabel = (index) => {
+        if (index === 0) return 'Latest';
+        if (index === punches.length - 1) return 'Start';
+        return 'Visit';
+    };
 
     return (
         <Box sx={{ p: 3 }}>
@@ -172,7 +161,7 @@ const EmployeeDashboard = () => {
                     { label: 'Distance', value: `${kpi.distance} km` },
                     { label: 'Working Time', value: kpi.duration },
                     { label: 'Collection', value: `₹ ${kpi.collection}` },
-                    { label: 'Disbursement', value: `₹ ${kpi.disbursement}` }, // ✅ ADDED
+                    { label: 'Disbursement', value: `₹ ${kpi.disbursement}` }
                 ].map((item, i) => (
                     <Grid item xs={6} md={2.4} key={i}>
                         <Card>
@@ -180,44 +169,22 @@ const EmployeeDashboard = () => {
                                 <Typography>{item.label}</Typography>
                                 {loading
                                     ? <Skeleton width={80} />
-                                    : (
-                                        <Typography
-                                            variant="h6"
-                                            color={item.label === 'Disbursement' ? 'error.main' : 'inherit'}
-                                        >
-                                            {item.value}
-                                        </Typography>
-                                    )}
+                                    : <Typography variant="h6">{item.value}</Typography>}
                             </CardContent>
                         </Card>
                     </Grid>
                 ))}
-
-                {/* PRODUCTIVITY */}
-                {/* <Grid item xs={12} md={6}>
-                    <Card>
-                        <CardContent>
-                            <Typography variant="h6">Productivity Score</Typography>
-                            <LinearProgress
-                                variant="determinate"
-                                value={productivity}
-                                sx={{ height: 10, borderRadius: 5, mt: 2 }}
-                            />
-                            <Typography sx={{ mt: 1 }}>
-                                {productivity.toFixed(0)}%
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                </Grid> */}
 
                 {/* DISTANCE CHART */}
                 <Grid item xs={12} md={6}>
                     <Card>
                         <CardContent>
                             <Typography variant="h6">Weekly Distance</Typography>
-                            {loading
-                                ? <Skeleton height={200} />
-                                : <DistanceChart data={chartData} />}
+                            <Box sx={{ width: '100%', height: 250 }}>
+                                {loading
+                                    ? <Skeleton height={200} />
+                                    : <DistanceChart data={chartData} />}
+                            </Box>
                         </CardContent>
                     </Card>
                 </Grid>
@@ -227,26 +194,26 @@ const EmployeeDashboard = () => {
                     <Card>
                         <CardContent>
                             <Typography variant="h6">Live Route Map</Typography>
-                            {loading
-                                ? <Skeleton height={200} />
-                                : <MapView punches={punches} />}
+                            <Box sx={{ width: '100%', height: 250 }}>
+                                <Suspense fallback={<Skeleton height={200} />}>
+                                    <MapView punches={punches} />
+                                </Suspense>
+                            </Box>
                         </CardContent>
                     </Card>
                 </Grid>
 
-                {/* ALLOWANCE CHART */}
+                {/* ALLOWANCE */}
                 <Grid item xs={12}>
                     <Card>
                         <CardContent>
-                            <Typography variant="h6">
-                                Allowance Insights (₹ vs Distance)
-                            </Typography>
-
-                            <AllowanceTrendChart data={allowanceChartData} />
+                            <Typography variant="h6">Allowance Insights</Typography>
+                            <Box sx={{ width: '100%', height: 250 }}>
+                                <AllowanceTrendChart data={allowanceChartData} />
+                            </Box>
                         </CardContent>
                     </Card>
                 </Grid>
-
             </Grid>
 
             {/* ACTIVITY */}
@@ -264,7 +231,7 @@ const EmployeeDashboard = () => {
                             <TableHead>
                                 <TableRow>
                                     <TableCell>#</TableCell>
-                                    <TableCell>Visit Type</TableCell>
+                                    <TableCell>Type</TableCell>
                                     <TableCell>Time</TableCell>
                                     <TableCell>Location</TableCell>
                                     <TableCell>Distance</TableCell>
@@ -278,15 +245,9 @@ const EmployeeDashboard = () => {
 
                                         <TableCell>
                                             <Chip
-                                                label={formatPunchLabel(p, i)}
-                                                color={
-                                                    i === 0
-                                                        ? 'success'
-                                                        : i === punches.length - 1
-                                                            ? 'warning'
-                                                            : 'primary'
-                                                }
+                                                label={formatPunchLabel(i)}
                                                 size="small"
+                                                color={i === 0 ? 'success' : 'primary'}
                                             />
                                         </TableCell>
 
@@ -313,7 +274,6 @@ const EmployeeDashboard = () => {
 
         </Box>
     );
-
 };
 
 export default React.memo(EmployeeDashboard);

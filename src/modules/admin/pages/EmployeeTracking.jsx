@@ -17,50 +17,46 @@ import EmployeeRouteModal from 'modules/employee/components/EmployeeRouteModal';
 const EmployeeTracking = () => {
 
     const [employees, setEmployees] = useState([]);
-    const [totalEmployees, setTotalEmployees] = useState(0);
-
     const [selected, setSelected] = useState(null);
     const [filteredRecords, setFilteredRecords] = useState([]);
 
     const [routeModal, setRouteModal] = useState({
         open: false,
-        employee: null
+        employee: null,
+        route: []
     });
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    const [detailFilters, setDetailFilters] = useState({
+    const [filters, setFilters] = useState({
         from: '',
         to: '',
         type: 'ALL'
     });
 
+    // ================= SAFE LIST =================
+    const getList = (res) => res?.data?.results || res?.data || [];
+
     // ================= FETCH =================
     const loadData = useCallback(async () => {
         try {
-            setLoading(true);
-
             const [usersRes, punchesRes] = await Promise.all([
                 api.getUsers(),
                 api.getPunchRecords()
             ]);
 
-            const usersData = usersRes?.data || {};
-            const users = usersData.results || usersData || [];
-            const punches = punchesRes?.data?.results || punchesRes?.data || [];
-
-            setTotalEmployees(usersData.count || users.length);
+            const users = getList(usersRes);
+            const punches = getList(punchesRes);
 
             const map = {};
 
-            // USERS
             users.forEach(u => {
                 const key = String(u.employee_id || u.id);
 
                 map[key] = {
-                    id: key,
-                    name: `${u.first_name || ''} ${u.last_name || ''}`,
+                    employee_id: key,
+                    name: `${u.first_name || ''} ${u.last_name || ''}`.trim(),
                     todayPunches: 0,
                     distance: 0,
                     collection: 0,
@@ -70,38 +66,25 @@ const EmployeeTracking = () => {
                 };
             });
 
-            // PUNCHES
             punches.forEach(p => {
-
                 const key = String(
                     p.employee_details?.employee_id ||
                     p.employee_id ||
                     p.employee
                 );
 
-                if (!map[key]) {
-                    map[key] = {
-                        id: key,
-                        name: p.employee_details?.name || `Emp ${key}`,
-                        todayPunches: 0,
-                        distance: 0,
-                        collection: 0,
-                        disbursement: 0,
-                        lastPunch: null,
-                        records: []
-                    };
-                }
+                if (!map[key]) return;
 
                 const emp = map[key];
 
-                const distance = Number(p.distance_from_last) || 0;
-                const amount = Number(p.amount) || 0;
-
                 emp.todayPunches += 1;
-                emp.distance += distance;
+                emp.distance += Number(p.distance_from_last || 0);
 
-                if (p.visit_type === 'COLLECTION') emp.collection += amount;
-                if (p.visit_type === 'DISBURSEMENT') emp.disbursement += amount;
+                if (p.visit_type === 'COLLECTION')
+                    emp.collection += Number(p.amount || 0);
+
+                if (p.visit_type === 'DISBURSEMENT')
+                    emp.disbursement += Number(p.amount || 0);
 
                 if (!emp.lastPunch || new Date(p.punched_at) > new Date(emp.lastPunch)) {
                     emp.lastPunch = p.punched_at;
@@ -111,6 +94,7 @@ const EmployeeTracking = () => {
             });
 
             setEmployees(Object.values(map));
+            setError(null);
 
         } catch (err) {
             setError('Failed to load tracking data');
@@ -119,43 +103,80 @@ const EmployeeTracking = () => {
         }
     }, []);
 
+    // ✅ REALTIME
     useEffect(() => {
         loadData();
+        const interval = setInterval(loadData, 5000);
+        return () => clearInterval(interval);
     }, [loadData]);
 
     // ================= SUMMARY =================
-    const activeCount = employees.filter(e => e.todayPunches > 0).length;
+    const summary = useMemo(() => {
+        const active = employees.filter(e => e.todayPunches > 0).length;
 
-    const summary = useMemo(() => ({
-        total: Math.max(totalEmployees, employees.length),
-        active: activeCount,
-        inactive: Math.max(totalEmployees, employees.length) - activeCount
-    }), [employees, totalEmployees, activeCount]);
+        return {
+            total: employees.length,
+            active,
+            inactive: employees.length - active
+        };
+    }, [employees]);
+
+    // ================= VIEW DETAILS =================
+    const handleView = (emp) => {
+        setSelected(emp);
+        setFilteredRecords(emp.records);
+    };
 
     // ================= FILTER =================
-    const applyDetailFilter = () => {
+    const applyFilters = () => {
         if (!selected) return;
 
         let records = [...selected.records];
 
-        if (detailFilters.from) {
-            records = records.filter(r => new Date(r.punched_at) >= new Date(detailFilters.from));
+        if (filters.from) {
+            records = records.filter(r =>
+                new Date(r.punched_at) >= new Date(filters.from)
+            );
         }
 
-        if (detailFilters.to) {
-            records = records.filter(r => new Date(r.punched_at) <= new Date(detailFilters.to));
+        if (filters.to) {
+            const toDate = new Date(filters.to);
+            toDate.setHours(23, 59, 59, 999);
+
+            records = records.filter(r =>
+                new Date(r.punched_at) <= toDate
+            );
         }
 
-        if (detailFilters.type !== 'ALL') {
-            records = records.filter(r => r.visit_type === detailFilters.type);
+        if (filters.type !== 'ALL') {
+            records = records.filter(r => r.visit_type === filters.type);
         }
 
         setFilteredRecords(records);
     };
 
-    useEffect(() => {
-        if (selected) setFilteredRecords(selected.records);
-    }, [selected]);
+    // ================= ROUTE =================
+    const handleRoute = async (emp) => {
+        try {
+            const res = await api.getEmployeeRoute(emp.employee_id);
+
+            const route = res?.data || [];
+
+            if (!route.length) {
+                alert("No route data available");
+                return;
+            }
+
+            setRouteModal({
+                open: true,
+                employee: emp,
+                route // ✅ full data (no filtering here)
+            });
+
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     return (
         <Box sx={{ p: 3 }}>
@@ -169,7 +190,7 @@ const EmployeeTracking = () => {
                 <Grid item xs={12} md={4}>
                     <Card><CardContent>
                         <PeopleIcon />
-                        <Typography>Total Employees</Typography>
+                        <Typography>Total</Typography>
                         <Typography variant="h6">{summary.total}</Typography>
                     </CardContent></Card>
                 </Grid>
@@ -193,43 +214,40 @@ const EmployeeTracking = () => {
 
             {error && <Alert severity="error">{error}</Alert>}
 
-            {/* CARDS */}
             {loading ? (
                 <CircularProgress />
             ) : (
                 <Grid container spacing={2}>
                     {employees.map(emp => (
-                        <Grid item xs={12} md={4} key={emp.id}>
+                        <Grid item xs={12} md={4} key={emp.employee_id}>
                             <EmployeeCard
                                 employee={emp}
-                                onView={setSelected}
-                                onRoute={(emp) =>
-                                    setRouteModal({ open: true, employee: emp })
-                                }
+                                onView={handleView}
+                                onRoute={handleRoute}
                             />
                         </Grid>
                     ))}
                 </Grid>
             )}
 
-            {/* DETAILS MODAL */}
+            {/* ================= DETAILS MODAL ================= */}
             <Dialog open={!!selected} onClose={() => setSelected(null)} fullWidth maxWidth="md">
-                <DialogTitle>{selected?.name}</DialogTitle>
+                <DialogTitle>{selected?.name} - Activity</DialogTitle>
 
                 <DialogContent>
 
                     <Stack direction="row" spacing={2} mb={2}>
-                        <TextField type="date" size="small"
-                            onChange={(e) => setDetailFilters(p => ({ ...p, from: e.target.value }))} />
-                        <TextField type="date" size="small"
-                            onChange={(e) => setDetailFilters(p => ({ ...p, to: e.target.value }))} />
-                        <TextField select size="small"
-                            onChange={(e) => setDetailFilters(p => ({ ...p, type: e.target.value }))}>
+                        <TextField type="date"
+                            onChange={(e) => setFilters(p => ({ ...p, from: e.target.value }))} />
+                        <TextField type="date"
+                            onChange={(e) => setFilters(p => ({ ...p, to: e.target.value }))} />
+                        <TextField select defaultValue="ALL"
+                            onChange={(e) => setFilters(p => ({ ...p, type: e.target.value }))}>
                             <MenuItem value="ALL">All</MenuItem>
                             <MenuItem value="COLLECTION">Collection</MenuItem>
                             <MenuItem value="DISBURSEMENT">Disbursement</MenuItem>
                         </TextField>
-                        <Button onClick={applyDetailFilter}>Apply</Button>
+                        <Button onClick={applyFilters}>Apply</Button>
                     </Stack>
 
                     <Table size="small">
@@ -243,31 +261,42 @@ const EmployeeTracking = () => {
                         </TableHead>
 
                         <TableBody>
-                            {filteredRecords.map((r, i) => (
-                                <TableRow key={i}>
-                                    <TableCell>{new Date(r.punched_at).toLocaleString()}</TableCell>
-                                    <TableCell>{r.visit_type}</TableCell>
-                                    <TableCell>{r.distance_from_last}</TableCell>
-                                    <TableCell>₹ {r.amount}</TableCell>
+                            {filteredRecords.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={4} align="center">
+                                        No records
+                                    </TableCell>
                                 </TableRow>
-                            ))}
+                            ) : (
+                                filteredRecords.map((r, i) => (
+                                    <TableRow key={i}>
+                                        <TableCell>
+                                            {r.punched_at
+                                                ? new Date(r.punched_at).toLocaleString()
+                                                : '--'}
+                                        </TableCell>
+                                        <TableCell>{r.visit_type}</TableCell>
+                                        <TableCell>{r.distance_from_last || 0}</TableCell>
+                                        <TableCell>₹ {r.amount || 0}</TableCell>
+                                    </TableRow>
+                                ))
+                            )}
                         </TableBody>
                     </Table>
 
                 </DialogContent>
             </Dialog>
 
-            {/* ROUTE MODAL */}
+            {/* ROUTE */}
             <EmployeeRouteModal
                 open={routeModal.open}
-                onClose={() => setRouteModal({ open: false, employee: null })}
+                onClose={() => setRouteModal({ open: false })}
                 employee={routeModal.employee}
-                allPunches={employees.flatMap(e => e.records)}
+                route={routeModal.route}
             />
 
         </Box>
     );
-
 };
 
 export default EmployeeTracking;

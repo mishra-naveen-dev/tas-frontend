@@ -1,29 +1,41 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-
 import { useAuth } from 'modules/auth/contexts/AuthContext';
 
 const Redirector = () => {
-    const { user, loading } = useAuth();
 
+    const { user, loading, isAuthenticated } = useAuth();
+
+    // ================= LOADING =================
     if (loading) return null;
 
-    if (!user) {
+    // ================= NOT AUTHENTICATED =================
+    if (!isAuthenticated || !user) {
         return <Navigate to="/login" replace />;
     }
 
-    if (user.force_password_change) {
+    // ================= FORCE PASSWORD =================
+    if (user.force_password_change === true) {
         return <Navigate to="/change-password" replace />;
     }
 
-    if (user.role_name === 'ADMIN' || user.role_name === 'SUPER_ADMIN') {
+    // ================= ROLE NORMALIZATION =================
+    const role = String(
+        user.role_name ||
+        user.role ||
+        ''
+    ).toUpperCase();
+
+    // ================= ROLE BASED REDIRECT =================
+    if (['ADMIN', 'SUPER_ADMIN'].includes(role)) {
         return <Navigate to="/admin/dashboard" replace />;
     }
 
-    if (user.role_name === 'EMPLOYEE') {
+    if (role === 'EMPLOYEE') {
         return <Navigate to="/employee/dashboard" replace />;
     }
 
+    // ================= FALLBACK =================
     return <Navigate to="/login" replace />;
 };
 

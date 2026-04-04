@@ -55,7 +55,7 @@ const CreateUser = () => {
                 api.getStates()
             ]);
 
-            console.log("ROLES:", rolesRes.data);
+
 
             setRoles(rolesRes.data || []);
             setStates(statesRes.data || []);

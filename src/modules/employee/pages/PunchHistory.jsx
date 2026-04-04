@@ -199,99 +199,101 @@ const PunchHistory = () => {
             <TableContainer component={Paper} sx={{ maxHeight: 500 }}>
                 <Table stickyHeader size="small">
 
-                    <TableHead>
+                    <Table stickyHeader size="small"><TableHead>
                         <TableRow>
                             <TableCell>Date</TableCell>
                             <TableCell>Time</TableCell>
                             <TableCell>Visit Type</TableCell>
                             <TableCell>Location</TableCell>
+                            <TableCell>Current Address</TableCell>
+                            <TableCell>Customer Address</TableCell>
                             <TableCell>Distance</TableCell>
                             <TableCell>Total</TableCell>
-                            <TableCell>Collection</TableCell>
-                            <TableCell>Disbursement</TableCell>
+                            <TableCell>Amount</TableCell>
                             <TableCell>Remarks</TableCell>
                         </TableRow>
                     </TableHead>
 
-                    <TableBody>
-
-                        {loading ? (
-                            [...Array(5)].map((_, i) => (
-                                <TableRow key={i}>
-                                    <TableCell colSpan={9}>
-                                        <Skeleton height={30} />
+                        <TableBody>
+                            {loading ? (
+                                [...Array(5)].map((_, i) => (
+                                    <TableRow key={i}>
+                                        <TableCell colSpan={10}>
+                                            <Skeleton height={30} />
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : punches.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={10} align="center">
+                                        No records found
                                     </TableCell>
                                 </TableRow>
-                            ))
-                        ) : punches.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={9} align="center">
-                                    No records found
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            punches.map((p) => (
-                                <TableRow key={p.id} hover>
+                            ) : (
+                                punches.map((p) => (
+                                    <TableRow key={p.id} hover>
 
-                                    <TableCell>
-                                        {p.punched_at
-                                            ? new Date(p.punched_at).toLocaleDateString()
-                                            : '--'}
-                                    </TableCell>
+                                        <TableCell>
+                                            {p.punched_at
+                                                ? new Date(p.punched_at).toLocaleDateString()
+                                                : '--'}
+                                        </TableCell>
 
-                                    <TableCell>
-                                        {p.punched_at
-                                            ? new Date(p.punched_at).toLocaleTimeString()
-                                            : '--'}
-                                    </TableCell>
+                                        <TableCell>
+                                            {p.punched_at
+                                                ? new Date(p.punched_at).toLocaleTimeString()
+                                                : '--'}
+                                        </TableCell>
 
-                                    <TableCell>
-                                        <Chip
-                                            label={p.visit_type || 'VISIT'}
-                                            color={
-                                                p.visit_type === 'COLLECTION'
-                                                    ? 'success'
-                                                    : 'primary'
-                                            }
-                                            size="small"
-                                        />
-                                    </TableCell>
+                                        <TableCell>
+                                            <Chip
+                                                label={p.visit_type || 'VISIT'}
+                                                color={
+                                                    p.visit_type === 'COLLECTION'
+                                                        ? 'success'
+                                                        : 'primary'
+                                                }
+                                                size="small"
+                                            />
+                                        </TableCell>
 
-                                    <TableCell sx={{ maxWidth: 180 }}>
-                                        {p.latitude && p.longitude
-                                            ? `${Number(p.latitude).toFixed(5)}, ${Number(p.longitude).toFixed(5)}`
-                                            : 'No location'}
-                                    </TableCell>
+                                        <TableCell>
+                                            {p.latitude
+                                                ? `${Number(p.latitude).toFixed(5)}, ${Number(p.longitude).toFixed(5)}`
+                                                : 'No location'}
+                                        </TableCell>
 
-                                    <TableCell>
-                                        {safeDistance(p.distance_from_last)} km
-                                    </TableCell>
+                                        {/* ✅ SAFE RENDER */}
+                                        <TableCell sx={{ maxWidth: 250 }}>
+                                            {p.current_address?.trim() || '--'}
+                                        </TableCell>
 
-                                    <TableCell>
-                                        {safeDistance(p.total_distance_day)} km
-                                    </TableCell>
+                                        <TableCell sx={{ maxWidth: 250 }}>
+                                            {p.customer_address?.trim() || '--'}
+                                        </TableCell>
 
-                                    <TableCell>
-                                        ₹ {p.visit_type === 'COLLECTION'
-                                            ? safeAmount(p.amount)
-                                            : '0.00'}
-                                    </TableCell>
+                                        <TableCell>
+                                            {safeDistance(p.distance_from_last)} km
+                                        </TableCell>
 
-                                    <TableCell>
-                                        ₹ {p.visit_type === 'DISBURSEMENT'
-                                            ? safeAmount(p.amount)
-                                            : '0.00'}
-                                    </TableCell>
+                                        <TableCell>
+                                            {safeDistance(p.total_distance_day)} km
+                                        </TableCell>
 
-                                    <TableCell>
-                                        {p.notes || '--'}
-                                    </TableCell>
+                                        <TableCell>
+                                            ₹ {safeAmount(p.amount)}
+                                        </TableCell>
 
-                                </TableRow>
-                            ))
-                        )}
+                                        <TableCell>
+                                            {p.notes || '--'}
+                                        </TableCell>
 
-                    </TableBody>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+
+                    </Table>
                 </Table>
             </TableContainer>
 

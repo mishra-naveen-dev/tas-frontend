@@ -42,10 +42,11 @@ const ADMIN_MENU = [
     { text: 'Pending Approvals', icon: AssignmentIcon, path: '/admin/pending-approvals' },
     { text: 'Punch Details', icon: AssignmentIcon, path: '/admin/punch-details' },
     { text: 'Employee Tracking', icon: PeopleIcon, path: '/admin/employee-tracking' },
-    { text: 'CRM Visits', icon: LocationIcon, path: '/admin/crm-visits' },
     { text: 'Punch Corrections', icon: EditIcon, path: '/admin/punch-corrections' },
+    { text: 'CRM Visits', icon: LocationIcon, path: '/admin/crm-visits' },
     { text: 'Profile Approvals', icon: AssignmentIcon, path: '/admin/profile-approval' },
     { text: 'Create User', icon: PeopleIcon, path: '/admin/create-user' },
+
 ];
 
 const EMPLOYEE_MENU = [

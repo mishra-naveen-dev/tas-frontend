@@ -12,44 +12,56 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
+    IconButton,
+    InputAdornment
 } from '@mui/material';
+
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from 'modules/auth/contexts/AuthContext';
 import api from 'core/services/api';
 
 const Login = () => {
+
     const navigate = useNavigate();
     const { login } = useAuth();
 
     const [form, setForm] = useState({
         username: '',
-        password: '',
+        password: ''
     });
 
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const [openForgot, setOpenForgot] = useState(false);
     const [email, setEmail] = useState('');
     const [forgotMsg, setForgotMsg] = useState('');
     const [forgotLoading, setForgotLoading] = useState(false);
 
-    // ================= HANDLE INPUT =================
+    // ================= INPUT =================
     const handleChange = (e) => {
         const { name, value } = e.target;
 
         setForm(prev => ({
             ...prev,
-            [name]: value,
+            [name]: value
         }));
+    };
+
+    // ================= PASSWORD TOGGLE =================
+    const handleTogglePassword = () => {
+        setShowPassword(true);
+        setTimeout(() => setShowPassword(false), 3000);
     };
 
     // ================= LOGIN =================
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (loading) return; // prevent double click
+        if (loading) return;
 
         setError('');
 
@@ -61,25 +73,31 @@ const Login = () => {
         setLoading(true);
 
         try {
-            const user = await login(form.username, form.password);
+            const res = await login(form.username, form.password);
 
-            // ================= REDIRECT =================
-            if (user.force_password_change) {
+
+            if (!res.success) {
+                setError(res.message);
+                return;
+            }
+
+            // 🔥 FORCE PASSWORD CHANGE
+            if (res.force_password_change) {
                 navigate('/change-password', { replace: true });
                 return;
             }
 
-            if (['ADMIN', 'SUPER_ADMIN'].includes(user.role_name)) {
+            const role = String(res.role).toUpperCase();
+
+            if (['ADMIN', 'SUPER_ADMIN'].includes(role)) {
                 navigate('/admin/dashboard', { replace: true });
             } else {
                 navigate('/employee/dashboard', { replace: true });
             }
 
         } catch (err) {
-            setError(
-                err?.response?.data?.detail ||
-                'Invalid username or password'
-            );
+
+            setError('Something went wrong');
         } finally {
             setLoading(false);
         }
@@ -99,9 +117,7 @@ const Login = () => {
             await api.post('/accounts/forgot-password/', { email });
             setForgotMsg('Reset link sent to your email');
         } catch (err) {
-            setForgotMsg(
-                err?.response?.data?.error || 'Something went wrong'
-            );
+            setForgotMsg(err?.response?.data?.error || 'Something went wrong');
         } finally {
             setForgotLoading(false);
         }
@@ -109,47 +125,21 @@ const Login = () => {
 
     return (
         <Container maxWidth="sm">
-            <Box
-                sx={{
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    minHeight: '100vh',
-                }}
-            >
-                <Paper
-                    elevation={4}
-                    sx={{
-                        p: 4,
-                        width: '100%',
-                        borderRadius: 3,
-                    }}
-                >
-                    {/* HEADER */}
-                    <Typography
-                        variant="h4"
-                        align="center"
-                        sx={{ fontWeight: 600, mb: 1 }}
-                    >
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+                <Paper elevation={4} sx={{ p: 4, width: '100%', borderRadius: 3 }}>
+
+                    <Typography variant="h4" align="center" sx={{ fontWeight: 600, mb: 1 }}>
                         TAS Login
                     </Typography>
 
-                    <Typography
-                        align="center"
-                        sx={{ mb: 3, color: 'text.secondary' }}
-                    >
+                    <Typography align="center" sx={{ mb: 3, color: 'text.secondary' }}>
                         Traveling Allowance System
                     </Typography>
 
-                    {/* ERROR */}
-                    {error && (
-                        <Alert severity="error" sx={{ mb: 2 }}>
-                            {error}
-                        </Alert>
-                    )}
+                    {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-                    {/* FORM */}
                     <form onSubmit={handleSubmit}>
+
                         <TextField
                             fullWidth
                             label="Username"
@@ -163,12 +153,21 @@ const Login = () => {
                         <TextField
                             fullWidth
                             label="Password"
-                            type="password"
                             name="password"
+                            type={showPassword ? 'text' : 'password'}
                             value={form.password}
                             onChange={handleChange}
                             margin="normal"
                             disabled={loading}
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton onClick={handleTogglePassword}>
+                                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                                        </IconButton>
+                                    </InputAdornment>
+                                )
+                            }}
                         />
 
                         <Button
@@ -178,30 +177,27 @@ const Login = () => {
                             type="submit"
                             disabled={loading}
                         >
-                            {loading ? (
-                                <CircularProgress size={22} color="inherit" />
-                            ) : (
-                                'Login'
-                            )}
+                            {loading ? <CircularProgress size={22} /> : 'Login'}
                         </Button>
+
                     </form>
 
-                    {/* FORGOT PASSWORD */}
                     <Typography
                         sx={{
                             mt: 2,
                             textAlign: 'center',
                             cursor: 'pointer',
                             color: 'primary.main',
-                            fontWeight: 500,
+                            fontWeight: 500
                         }}
                         onClick={() => setOpenForgot(true)}
                     >
                         Forgot Password?
                     </Typography>
+
                 </Paper>
 
-                {/* ================= DIALOG ================= */}
+                {/* FORGOT PASSWORD DIALOG */}
                 <Dialog open={openForgot} onClose={() => setOpenForgot(false)}>
                     <DialogTitle>Reset Password</DialogTitle>
 
@@ -214,31 +210,22 @@ const Login = () => {
                             sx={{ mt: 1 }}
                         />
 
-                        {forgotMsg && (
-                            <Alert sx={{ mt: 2 }}>
-                                {forgotMsg}
-                            </Alert>
-                        )}
+                        {forgotMsg && <Alert sx={{ mt: 2 }}>{forgotMsg}</Alert>}
                     </DialogContent>
 
                     <DialogActions>
-                        <Button onClick={() => setOpenForgot(false)}>
-                            Cancel
-                        </Button>
+                        <Button onClick={() => setOpenForgot(false)}>Cancel</Button>
 
                         <Button
                             onClick={handleForgotPassword}
                             variant="contained"
                             disabled={forgotLoading}
                         >
-                            {forgotLoading ? (
-                                <CircularProgress size={20} />
-                            ) : (
-                                'Send'
-                            )}
+                            {forgotLoading ? <CircularProgress size={20} /> : 'Send'}
                         </Button>
                     </DialogActions>
                 </Dialog>
+
             </Box>
         </Container>
     );

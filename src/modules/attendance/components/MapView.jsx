@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
     MapContainer,
     TileLayer,
@@ -9,137 +9,175 @@ import {
 } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { Box, Button, Stack } from '@mui/material';
 
-// ================= FIX DEFAULT ICON =================
+// ================= ICON FIX =================
 delete L.Icon.Default.prototype._getIconUrl;
-
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
     iconUrl: require('leaflet/dist/images/marker-icon.png'),
     shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
 });
 
-// ================= MARKER COLOR =================
-const getMarkerIcon = (index, total) => {
-    let color = 'blue';
-    if (index === 0) color = 'green';
-    else if (index === total - 1) color = 'red';
-
-    return new L.Icon({
-        iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${color}.png`,
-        shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
-        iconSize: [25, 41],
-        iconAnchor: [12, 41]
-    });
-
-};
-
-// ================= AUTO FIT =================
+// ================= MAP FIT =================
 const FitBounds = ({ path }) => {
     const map = useMap();
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (path.length > 1) {
-            map.fitBounds(path, { padding: [30, 30] });
+            map.fitBounds(path, { padding: [40, 40] });
         }
     }, [path, map]);
 
     return null;
-
 };
 
+// ================= MAIN =================
 const MapView = ({ punches = [] }) => {
 
-    // ================= VALIDATE =================
+    const [routePath, setRoutePath] = useState([]);
+    const [playIndex, setPlayIndex] = useState(0);
+    const [playing, setPlaying] = useState(false);
+
+    const intervalRef = useRef(null);
+
+    // ================= SORT + FILTER =================
     const validPunches = useMemo(() => {
         return punches
             .filter(p => p.latitude && p.longitude)
             .sort((a, b) => new Date(a.punched_at) - new Date(b.punched_at));
     }, [punches]);
 
-    const hasData = validPunches.length > 0;
+    // ================= FETCH ROAD ROUTE =================
+    useEffect(() => {
+        const fetchRoute = async () => {
 
-    // ================= DEFAULT LOCATION =================
-    const defaultCenter = [23.0225, 72.5714]; // Ahmedabad
+            if (validPunches.length < 2) {
+                setRoutePath(validPunches.map(p => [p.latitude, p.longitude]));
+                return;
+            }
 
-    const path = hasData
-        ? validPunches.map(p => [p.latitude, p.longitude])
-        : [];
+            try {
+                const coords = validPunches
+                    .map(p => `${p.longitude},${p.latitude}`)
+                    .join(';');
 
-    const last = hasData
-        ? validPunches[validPunches.length - 1]
-        : { latitude: defaultCenter[0], longitude: defaultCenter[1] };
+                const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
+
+                const res = await fetch(url);
+                const data = await res.json();
+
+                const routeCoords = data.routes[0].geometry.coordinates.map(
+                    ([lng, lat]) => [lat, lng]
+                );
+
+                setRoutePath(routeCoords);
+
+            } catch (err) {
+                console.error("Route API failed, fallback:", err);
+
+                // fallback straight line
+                setRoutePath(validPunches.map(p => [p.latitude, p.longitude]));
+            }
+        };
+
+        fetchRoute();
+    }, [validPunches]);
+
+    // ================= PLAYBACK =================
+    useEffect(() => {
+        if (!playing) return;
+
+        intervalRef.current = setInterval(() => {
+            setPlayIndex(prev => {
+                if (prev >= routePath.length - 1) {
+                    clearInterval(intervalRef.current);
+                    return prev;
+                }
+                return prev + 1;
+            });
+        }, 200); // speed
+
+        return () => clearInterval(intervalRef.current);
+    }, [playing, routePath]);
+
+    const handlePlay = () => {
+        setPlayIndex(0);
+        setPlaying(true);
+    };
+
+    const handlePause = () => {
+        setPlaying(false);
+    };
+
+    // ================= DEFAULT =================
+    const defaultCenter = [23.0225, 72.5714];
+
+    const currentPosition =
+        routePath[playIndex] || defaultCenter;
 
     return (
-        <div style={{ position: 'relative' }}>
+        <Box position="relative">
 
-            {/* EMPTY STATE OVERLAY */}
-            {!hasData && (
-                <div style={{
+            {/* ================= CONTROLS ================= */}
+            <Stack
+                direction="row"
+                spacing={2}
+                sx={{
                     position: 'absolute',
-                    zIndex: 1000,
-                    width: '100%',
-                    textAlign: 'center',
-                    paddingTop: 10,
-                    fontWeight: 500,
-                    color: '#666'
-                }}>
-                    No tracking data available. Showing default location.
-                </div>
-            )}
+                    top: 10,
+                    left: 10,
+                    zIndex: 1000
+                }}
+            >
+                <Button variant="contained" onClick={handlePlay}>
+                    ▶ Play
+                </Button>
+
+                <Button variant="outlined" onClick={handlePause}>
+                    ⏸ Pause
+                </Button>
+            </Stack>
 
             <MapContainer
-                center={[last.latitude, last.longitude]}
+                center={currentPosition}
                 zoom={13}
-                style={{ height: '350px', width: '100%', borderRadius: 8 }}
+                style={{ height: '500px', width: '100%', borderRadius: 8 }}
             >
-                <TileLayer
-                    attribution="© OpenStreetMap contributors"
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+
+                {routePath.length > 1 && <FitBounds path={routePath} />}
+
+                {/* ROAD PATH */}
+                <Polyline
+                    positions={routePath}
+                    color="blue"
+                    weight={5}
                 />
 
-                {/* AUTO FIT ONLY WHEN DATA */}
-                {hasData && <FitBounds path={path} />}
-
-                {/* PATH */}
-                {hasData && (
-                    <Polyline
-                        positions={path}
-                        color="red"
-                        weight={4}
-                        opacity={0.7}
-                    />
-                )}
-
-                {/* MARKERS */}
-                {hasData ? (
-                    validPunches.map((p, i) => (
-                        <Marker
-                            key={i}
-                            position={[p.latitude, p.longitude]}
-                            icon={getMarkerIcon(i, validPunches.length)}
-                        >
-                            <Popup>
-                                <div style={{ fontSize: 13 }}>
-                                    <b>{p.punch_type || "Punch"}</b><br />
-                                    📅 {new Date(p.punched_at).toLocaleString()}<br />
-                                    📍 {p.latitude.toFixed(5)}, {p.longitude.toFixed(5)}<br />
-                                    🚗 Distance: {p.distance_from_last || 0} km<br />
-                                </div>
-                            </Popup>
-                        </Marker>
-                    ))
-                ) : (
-                    <Marker position={defaultCenter}>
+                {/* ORIGINAL PUNCH POINTS */}
+                {validPunches.map((p, i) => (
+                    <Marker
+                        key={i}
+                        position={[p.latitude, p.longitude]}
+                    >
                         <Popup>
-                            Default Location (No punches yet)
+                            Point {i + 1} <br />
+                            {new Date(p.punched_at).toLocaleString()}
                         </Popup>
                     </Marker>
-                )}
-            </MapContainer>
-        </div>
-    );
+                ))}
 
+                {/* MOVING MARKER */}
+                {routePath.length > 0 && (
+                    <Marker position={currentPosition}>
+                        <Popup>🚗 Moving</Popup>
+                    </Marker>
+                )}
+
+            </MapContainer>
+        </Box>
+    );
 };
 
 export default MapView;

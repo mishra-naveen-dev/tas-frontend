@@ -10,39 +10,40 @@ import {
 
 import MapView from 'modules/attendance/components/MapView';
 
-const EmployeeRouteModal = ({ open, onClose, employee, allPunches }) => {
+const EmployeeRouteModal = ({ open, onClose, employee, route = [] }) => {
 
+    // ✅ DEFAULT TODAY DATE
     const [date, setDate] = useState(
         new Date().toISOString().split('T')[0]
     );
 
-    // ================= FILTER ROUTE =================
-    const routeData = useMemo(() => {
-        if (!employee) return [];
+    // ================= FILTER =================
+    const filteredRoute = useMemo(() => {
 
-        return allPunches.filter(p => {
+        if (!route.length) return [];
 
-            const empId =
-                p.employee_details?.employee_id ||
-                p.employee_id ||
-                '';
+        return route.filter(p => {
+
+            if (!p.punched_at) return false;
 
             const punchDate =
                 new Date(p.punched_at).toISOString().split('T')[0];
 
             return (
-                empId === employee.employee_id &&
                 punchDate === date &&
-                p.latitude && p.longitude
+                p.latitude &&
+                p.longitude
             );
+
         });
-    }, [employee, allPunches, date]);
+
+    }, [route, date]);
 
     return (
         <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
 
             <DialogTitle>
-                {employee?.employee_name || employee?.name} - Route Map
+                {employee?.name} - Route Map
             </DialogTitle>
 
             <DialogContent>
@@ -60,17 +61,16 @@ const EmployeeRouteModal = ({ open, onClose, employee, allPunches }) => {
                 </Box>
 
                 {/* MAP */}
-                {routeData.length === 0 ? (
-                    <Typography>No route data available</Typography>
+                {filteredRoute.length === 0 ? (
+                    <Typography>No route available for selected date</Typography>
                 ) : (
-                    <MapView punches={routeData} />
+                    <MapView punches={filteredRoute} />
                 )}
 
             </DialogContent>
 
         </Dialog>
     );
-
 };
 
 export default EmployeeRouteModal;

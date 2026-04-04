@@ -23,17 +23,20 @@ import {
     Box,
     Alert,
     Snackbar,
-    IconButton,
-
+    IconButton
 } from '@mui/material';
+
 import { Add as AddIcon, Edit as EditIcon } from '@mui/icons-material';
+
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+
 import api from 'core/services/api';
 
 const PunchCorrections = () => {
+
     const [corrections, setCorrections] = useState([]);
     const [loading, setLoading] = useState(true);
     const [open, setOpen] = useState(false);
@@ -54,11 +57,11 @@ const PunchCorrections = () => {
         severity: 'success'
     });
 
+    // ================= FETCH =================
     useEffect(() => {
         fetchCorrections();
     }, []);
 
-    // ✅ FIXED FUNCTION
     const fetchCorrections = async () => {
         try {
             const response = await api.getCorrections();
@@ -70,11 +73,11 @@ const PunchCorrections = () => {
             );
 
         } catch (error) {
-            console.error('Error fetching corrections:', error);
+
 
             setSnackbar({
                 open: true,
-                message: 'Failed to load correction requests',
+                message: 'Server error while loading corrections',
                 severity: 'error'
             });
         } finally {
@@ -82,7 +85,9 @@ const PunchCorrections = () => {
         }
     };
 
+    // ================= DIALOG =================
     const handleOpenDialog = (correction) => {
+
         if (correction) {
             setEditingCorrection(correction);
 
@@ -94,6 +99,7 @@ const PunchCorrections = () => {
                 requested_punch_type: correction.requested_punch_type,
                 reason: correction.reason
             });
+
         } else {
             setEditingCorrection(null);
 
@@ -115,9 +121,21 @@ const PunchCorrections = () => {
         setEditingCorrection(null);
     };
 
+    // ================= SUBMIT =================
     const handleSubmit = async () => {
+
+        if (!formData.reason) {
+            setSnackbar({
+                open: true,
+                message: "Reason is required",
+                severity: "error"
+            });
+            return;
+        }
+
         try {
-            const data = {
+
+            const payload = {
                 correction_type: formData.correction_type,
                 existing_punch: formData.existing_punch || null,
                 requested_date: formData.requested_date.toISOString().split('T')[0],
@@ -126,8 +144,12 @@ const PunchCorrections = () => {
                 reason: formData.reason
             };
 
+
             if (editingCorrection) {
-                await api.updateCorrection(editingCorrection.id, data);
+                await api.patch(
+                    `/attendance/corrections/${editingCorrection.id}/`,
+                    payload
+                );
 
                 setSnackbar({
                     open: true,
@@ -136,7 +158,7 @@ const PunchCorrections = () => {
                 });
 
             } else {
-                await api.createCorrection(data);
+                await api.createCorrection(payload);
 
                 setSnackbar({
                     open: true,
@@ -149,16 +171,19 @@ const PunchCorrections = () => {
             fetchCorrections();
 
         } catch (error) {
-            console.error('Error submitting correction:', error);
+
 
             setSnackbar({
                 open: true,
-                message: 'Failed to submit correction',
+                message:
+                    error?.response?.data?.detail ||
+                    JSON.stringify(error?.response?.data),
                 severity: 'error'
             });
         }
     };
 
+    // ================= HELPERS =================
     const getStatusColor = (status) => {
         switch (status) {
             case 'PENDING': return 'warning';
@@ -177,6 +202,7 @@ const PunchCorrections = () => {
         }
     };
 
+    // ================= UI =================
     if (loading) {
         return (
             <Container sx={{ mt: 4 }}>
@@ -250,7 +276,7 @@ const PunchCorrections = () => {
                     </Table>
                 </TableContainer>
 
-                {/* Dialog */}
+                {/* DIALOG */}
                 <Dialog open={open} onClose={handleCloseDialog}>
                     <DialogTitle>
                         {editingCorrection ? 'Edit Request' : 'New Request'}

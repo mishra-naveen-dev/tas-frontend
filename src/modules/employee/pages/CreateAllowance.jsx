@@ -13,9 +13,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import api from 'core/services/api';
 
-
-
 const CreateAllowance = () => {
+
     const navigate = useNavigate();
 
     const [formData, setFormData] = useState({
@@ -33,51 +32,57 @@ const CreateAllowance = () => {
     const handleChange = (e) => {
         const { name, value } = e.target;
 
-        setFormData({
-            ...formData,
+        setFormData(prev => ({
+            ...prev,
             [name]: value,
-        });
+        }));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        if (loading) return;
+
+        setError(null);
+
+        // ✅ VALIDATION
+        if (!formData.total_distance) {
+            setError("Distance is required");
+            return;
+        }
+
         try {
             setLoading(true);
-            setError(null);
-
-            const distance = parseFloat(formData.total_distance);
-
-            if (!distance || distance <= 0) {
-                setError('Distance must be greater than 0');
-                setLoading(false);
-                return;
-            }
 
             const payload = {
                 travel_date: formData.travel_date,
                 from_location: formData.from_location,
                 to_location: formData.to_location,
-                total_distance: distance,
-
+                total_distance: parseFloat(formData.total_distance),
                 reason: formData.reason,
             };
 
+            console.log("PAYLOAD:", payload);
+
             await api.createAllowanceRequest(payload);
 
-            setSuccessMessage('Allowance request created successfully');
+            setSuccessMessage("Allowance submitted successfully");
 
             setTimeout(() => {
                 navigate('/employee/allowance-history');
-            }, 1500);
+            }, 1200);
 
         } catch (err) {
-            console.log("BACKEND ERROR:", err.response?.data);
+
+            console.error("ERROR:", err?.response?.data);
 
             setError(
-                JSON.stringify(err.response?.data) ||
-                'Failed to create allowance request'
+                err?.response?.data?.total_distance ||
+                err?.response?.data?.error ||
+                err?.response?.data?.detail ||
+                "Failed to create allowance"
             );
+
         } finally {
             setLoading(false);
         }
@@ -85,12 +90,12 @@ const CreateAllowance = () => {
 
     return (
         <Box sx={{ p: 3 }}>
-            <Typography variant="h4">Create Allowance Request</Typography>
+            <Typography variant="h5">Create Allowance</Typography>
 
             {error && <Alert severity="error">{error}</Alert>}
             {successMessage && <Alert severity="success">{successMessage}</Alert>}
 
-            <Card sx={{ mt: 3 }}>
+            <Card sx={{ mt: 2 }}>
                 <CardContent>
                     <form onSubmit={handleSubmit}>
                         <Grid container spacing={2}>
@@ -102,19 +107,17 @@ const CreateAllowance = () => {
                                     name="travel_date"
                                     value={formData.travel_date}
                                     onChange={handleChange}
-                                    required
                                 />
                             </Grid>
 
                             <Grid item xs={12} sm={6}>
                                 <TextField
                                     fullWidth
-                                    type="number"
-                                    label="Distance (km)"
+                                    label="Distance (KM)"
                                     name="total_distance"
+                                    type="number"
                                     value={formData.total_distance}
                                     onChange={handleChange}
-                                    required
                                 />
                             </Grid>
 
@@ -125,7 +128,6 @@ const CreateAllowance = () => {
                                     name="from_location"
                                     value={formData.from_location}
                                     onChange={handleChange}
-                                    required
                                 />
                             </Grid>
 
@@ -136,7 +138,6 @@ const CreateAllowance = () => {
                                     name="to_location"
                                     value={formData.to_location}
                                     onChange={handleChange}
-                                    required
                                 />
                             </Grid>
 
@@ -149,13 +150,19 @@ const CreateAllowance = () => {
                                     name="reason"
                                     value={formData.reason}
                                     onChange={handleChange}
-                                    required
                                 />
                             </Grid>
 
                             <Grid item xs={12}>
-                                <Button type="submit" variant="contained" disabled={loading}>
-                                    {loading ? <CircularProgress size={24} /> : 'Submit'}
+                                <Button
+                                    fullWidth
+                                    variant="contained"
+                                    type="submit"
+                                    disabled={loading}
+                                >
+                                    {loading
+                                        ? <CircularProgress size={22} />
+                                        : "Submit"}
                                 </Button>
                             </Grid>
 

@@ -39,6 +39,7 @@ const PunchDetails = lazy(() => import('modules/admin/pages/PunchDetails'));
 const EmployeeTracking = lazy(() => import('modules/admin/pages/EmployeeTracking'));
 const CRMVisits = lazy(() => import('modules/admin/pages/CRMVisits'));
 const ProfileApproval = lazy(() => import('modules/admin/pages/ProfileApproval'));
+const AdminPunchCorrections = lazy(() => import('modules/admin/pages/AdminPunchCorrections'));
 
 // ================= ROUTES =================
 const AppRoutes = () => {
@@ -52,7 +53,7 @@ const AppRoutes = () => {
                 {/* ROOT REDIRECT */}
                 <Route path="/" element={<Redirector />} />
 
-                {/* COMMON */}
+                {/* ================= COMMON ================= */}
                 <Route
                     path="/change-password"
                     element={
@@ -77,7 +78,7 @@ const AppRoutes = () => {
                 <Route
                     path="/employee/dashboard"
                     element={
-                        <ProtectedRoute roles={['EMPLOYEE']}>
+                        <ProtectedRoute requiredRoles={['EMPLOYEE']}>
                             <AppLayout>
                                 <EmployeeDashboard />
                             </AppLayout>
@@ -88,7 +89,7 @@ const AppRoutes = () => {
                 <Route
                     path="/employee/punch-history"
                     element={
-                        <ProtectedRoute roles={['EMPLOYEE']}>
+                        <ProtectedRoute requiredRoles={['EMPLOYEE']}>
                             <AppLayout>
                                 <PunchHistory />
                             </AppLayout>
@@ -99,7 +100,7 @@ const AppRoutes = () => {
                 <Route
                     path="/employee/punch-corrections"
                     element={
-                        <ProtectedRoute roles={['EMPLOYEE']}>
+                        <ProtectedRoute requiredRoles={['EMPLOYEE']}>
                             <AppLayout>
                                 <PunchCorrections />
                             </AppLayout>
@@ -110,7 +111,7 @@ const AppRoutes = () => {
                 <Route
                     path="/employee/create-allowance"
                     element={
-                        <ProtectedRoute roles={['EMPLOYEE']}>
+                        <ProtectedRoute requiredRoles={['EMPLOYEE']}>
                             <AppLayout>
                                 <CreateAllowance />
                             </AppLayout>
@@ -121,7 +122,7 @@ const AppRoutes = () => {
                 <Route
                     path="/employee/allowance-history"
                     element={
-                        <ProtectedRoute roles={['EMPLOYEE']}>
+                        <ProtectedRoute requiredRoles={['EMPLOYEE']}>
                             <AppLayout>
                                 <AllowanceHistory />
                             </AppLayout>
@@ -132,7 +133,7 @@ const AppRoutes = () => {
                 <Route
                     path="/employee/daily-summary"
                     element={
-                        <ProtectedRoute roles={['EMPLOYEE']}>
+                        <ProtectedRoute requiredRoles={['EMPLOYEE']}>
                             <AppLayout>
                                 <DailySummary />
                             </AppLayout>
@@ -144,7 +145,7 @@ const AppRoutes = () => {
                 <Route
                     path="/admin/dashboard"
                     element={
-                        <ProtectedRoute roles={['ADMIN', 'SUPER_ADMIN']}>
+                        <ProtectedRoute requiredRoles={['ADMIN', 'SUPER_ADMIN']}>
                             <AppLayout>
                                 <AdminDashboard />
                             </AppLayout>
@@ -155,7 +156,7 @@ const AppRoutes = () => {
                 <Route
                     path="/admin/users"
                     element={
-                        <ProtectedRoute roles={['ADMIN', 'SUPER_ADMIN']}>
+                        <ProtectedRoute requiredRoles={['ADMIN', 'SUPER_ADMIN']}>
                             <AppLayout>
                                 <UserManagement />
                             </AppLayout>
@@ -166,7 +167,7 @@ const AppRoutes = () => {
                 <Route
                     path="/admin/create-user"
                     element={
-                        <ProtectedRoute roles={['ADMIN', 'SUPER_ADMIN']}>
+                        <ProtectedRoute requiredRoles={['ADMIN', 'SUPER_ADMIN']}>
                             <AppLayout>
                                 <CreateUser />
                             </AppLayout>
@@ -177,7 +178,7 @@ const AppRoutes = () => {
                 <Route
                     path="/admin/pending-approvals"
                     element={
-                        <ProtectedRoute roles={['ADMIN', 'SUPER_ADMIN']}>
+                        <ProtectedRoute requiredRoles={['ADMIN', 'SUPER_ADMIN']}>
                             <AppLayout>
                                 <PendingApprovals />
                             </AppLayout>
@@ -188,27 +189,20 @@ const AppRoutes = () => {
                 <Route
                     path="/admin/punch-details"
                     element={
-                        <ProtectedRoute roles={['ADMIN', 'SUPER_ADMIN']}>
+                        <ProtectedRoute requiredRoles={['ADMIN', 'SUPER_ADMIN']}>
                             <AppLayout>
                                 <PunchDetails />
                             </AppLayout>
                         </ProtectedRoute>
                     }
                 />
-                <Route
-                    path="/admin/punch-corrections"
-                    element={
-                        <ProtectedRoute roles={['ADMIN', 'SUPER_ADMIN']}>
-                            <AppLayout>
-                                <PunchCorrections />
-                            </AppLayout>
-                        </ProtectedRoute>
-                    }
-                />
+
+
+
                 <Route
                     path="/admin/employee-tracking"
                     element={
-                        <ProtectedRoute roles={['ADMIN', 'SUPER_ADMIN']}>
+                        <ProtectedRoute requiredRoles={['ADMIN', 'SUPER_ADMIN']}>
                             <AppLayout>
                                 <EmployeeTracking />
                             </AppLayout>
@@ -219,9 +213,19 @@ const AppRoutes = () => {
                 <Route
                     path="/admin/crm-visits"
                     element={
-                        <ProtectedRoute roles={['ADMIN', 'SUPER_ADMIN']}>
+                        <ProtectedRoute requiredRoles={['ADMIN', 'SUPER_ADMIN']}>
                             <AppLayout>
                                 <CRMVisits />
+                            </AppLayout>
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/admin/punch-corrections"
+                    element={
+                        <ProtectedRoute roles={['ADMIN', 'SUPER_ADMIN']}>
+                            <AppLayout>
+                                <AdminPunchCorrections />
                             </AppLayout>
                         </ProtectedRoute>
                     }
@@ -230,7 +234,7 @@ const AppRoutes = () => {
                 <Route
                     path="/admin/profile-approval"
                     element={
-                        <ProtectedRoute roles={['ADMIN', 'SUPER_ADMIN']}>
+                        <ProtectedRoute requiredRoles={['ADMIN', 'SUPER_ADMIN']}>
                             <AppLayout>
                                 <ProfileApproval />
                             </AppLayout>
@@ -238,14 +242,13 @@ const AppRoutes = () => {
                     }
                 />
 
-                {/* FALLBACK */}
+                {/* ================= FALLBACK ================= */}
                 <Route path="/unauthorized" element={<Unauthorized />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
 
             </Routes>
         </Suspense>
     );
-
 };
 
 // ================= MAIN APP =================
@@ -260,7 +263,6 @@ const App = () => {
 
         </ThemeProvider>
     );
-
 };
 
 export default App;
