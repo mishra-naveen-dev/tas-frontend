@@ -41,6 +41,7 @@ const CRMVisits = lazy(() => import('modules/admin/pages/CRMVisits'));
 const ProfileApproval = lazy(() => import('modules/admin/pages/ProfileApproval'));
 const AdminPunchCorrections = lazy(() => import('modules/admin/pages/AdminPunchCorrections'));
 const AdminDeviceManagement = lazy(() => import('modules/admin/pages/AdminDeviceManagement'));
+const PasswordManagement = lazy(() => import('modules/admin/pages/PasswordManagement'));
 
 // ================= ROUTES =================
 const AppRoutes = () => {
@@ -249,6 +250,17 @@ const AppRoutes = () => {
                         <ProtectedRoute requiredRoles={['ADMIN', 'SUPER_ADMIN']}>
                             <AppLayout>
                                 <AdminDeviceManagement />
+                            </AppLayout>
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/admin/password-management"
+                    element={
+                        <ProtectedRoute requiredRoles={['SUPER_ADMIN']}>
+                            <AppLayout>
+                                <PasswordManagement />
                             </AppLayout>
                         </ProtectedRoute>
                     }

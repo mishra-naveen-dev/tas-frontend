@@ -384,6 +384,14 @@ class APIService {
     getAllDevices(params = {}) {
         return this.get('/organization/devices/', params);
     }
+
+    getPasswordExpiryList(params = {}) {
+        return this.get('/auth/password-expiry/', params);
+    }
+
+    resetUserPasswordExpiry(userId, type = 'expiry') {
+        return this.post('/auth/password-expiry/reset/', { user_id: userId, type });
+    }
 }
 
 export default APIService.getInstance();
