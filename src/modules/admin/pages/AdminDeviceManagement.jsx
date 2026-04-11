@@ -112,10 +112,13 @@ const AdminDeviceManagement = () => {
                 params.status = statusFilter;
             }
             const res = await api.getAllDevices(params);
-            setDevices(res.data);
+            const data = res.data;
+            // Handle paginated or non-paginated response
+            const devicesData = data?.results || data || [];
+            setDevices(Array.isArray(devicesData) ? devicesData : []);
         } catch (err) {
             console.error('Failed to fetch devices:', err);
-            setError('Failed to load devices. Please try again.');
+            setError(err?.response?.data?.detail || err?.response?.data?.error || 'Failed to load devices. Please try again.');
         } finally {
             setLoading(false);
         }
