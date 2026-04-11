@@ -16,10 +16,12 @@ import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
 import api from 'core/services/api';
+import { useAuth } from 'modules/auth/contexts/AuthContext';
 
 const ChangePassword = () => {
 
     const navigate = useNavigate();
+    const { user } = useAuth();
 
     // ================= PROTECT ROUTE =================
     useEffect(() => {
@@ -79,14 +81,32 @@ const ChangePassword = () => {
             // 🔥 CHANGE PASSWORD API
             await api.changePassword(password);
 
-            // ✅ SUCCESS MESSAGE
-            setSuccess("Password updated successfully. Please login again.");
+            // ✅ Auto-login with new password
+            const username = user?.username;
+            
+            if (username) {
+                // Call login API using api.login which includes device headers
+                const loginRes = await api.login(username, password);
 
-            // 🔥 CLEAR SESSION + REDIRECT
-            setTimeout(() => {
-                sessionStorage.clear();
-                navigate('/login', { replace: true });
-            }, 1200);
+                // Show success and redirect
+                setSuccess("Password updated successfully! Redirecting...");
+                
+                setTimeout(() => {
+                    const role = loginRes.role;
+                    if (role === 'EMPLOYEE') {
+                        navigate('/employee/dashboard', { replace: true });
+                    } else {
+                        navigate('/admin/dashboard', { replace: true });
+                    }
+                }, 1000);
+            } else {
+                // Fallback: redirect to login
+                setSuccess("Password updated successfully. Please login again.");
+                setTimeout(() => {
+                    sessionStorage.clear();
+                    navigate('/login', { replace: true });
+                }, 1200);
+            }
 
         } catch (err) {
 
