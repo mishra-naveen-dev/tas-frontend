@@ -34,7 +34,7 @@ import {
     Speed as SpeedIcon,
     MyLocation as LocationIcon,
 } from '@mui/icons-material';
-import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import api from 'core/services/api';
