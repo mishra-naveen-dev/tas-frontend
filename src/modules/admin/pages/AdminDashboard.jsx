@@ -1,46 +1,24 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import {
-    Box,
-    Grid,
-    Card,
-    CardContent,
-    Typography,
-} from '@mui/material';
-
-import {
-    People,
-    Assignment,
-    LocationOn,
-    TrendingUp,
-    PendingActions,
-    CurrencyRupee,
-} from '@mui/icons-material';
-
+import { Box, Grid, Card, CardContent, Typography } from '@mui/material';
+import { People, Assignment, LocationOn, TrendingUp, PendingActions, CurrencyRupee } from '@mui/icons-material';
 import api from 'core/services/api';
 import AdvancedFilter from 'shared/components/AdvancedFilter';
 import { PageSkeleton } from 'shared/components/SkeletonLoader';
+import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Legend, ResponsiveContainer, Cell } from 'recharts';
 
-import {
-    LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
-    PieChart, Pie, Legend,
-    ResponsiveContainer, Cell
-} from 'recharts';
-
-const StatCard = ({ title, value, icon, color }) => (
+const StatCard = React.memo(({ title, value, icon, color }) => (
     <Card sx={{ borderRadius: 3 }}>
         <CardContent>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box>
                     <Typography variant="body2" color="text.secondary">{title}</Typography>
-                    <Typography variant="h5" fontWeight="bold" color={color || 'primary'}>
-                        {value}
-                    </Typography>
+                    <Typography variant="h5" fontWeight="bold" color={color || 'primary'}>{value}</Typography>
                 </Box>
                 {icon}
             </Box>
         </CardContent>
     </Card>
-);
+));
 
 const COLORS = ['#1976d2', '#2e7d32', '#d32f2f'];
 
@@ -82,42 +60,18 @@ const AdminDashboard = () => {
             const map = {};
             users.forEach(u => {
                 const key = String(u.employee_id || u.id);
-                map[key] = {
-                    id: key,
-                    name: `${u.first_name || ''} ${u.last_name || ''}`,
-                    distance: 0,
-                    collection: 0,
-                    disbursement: 0,
-                    punches: 0
-                };
+                map[key] = { id: key, name: `${u.first_name || ''} ${u.last_name || ''}`, distance: 0, collection: 0, disbursement: 0, punches: 0 };
             });
 
-            let totalDistance = 0;
-            let collection = 0;
-            let disbursement = 0;
+            let totalDistance = 0, collection = 0, disbursement = 0;
             const activeSet = new Set();
 
             punches.forEach(p => {
-                const empId = String(
-                    p.employee_details?.employee_id ||
-                    p.employee_id ||
-                    p.employee_details?.id ||
-                    p.employee || ''
-                );
-
+                const empId = String(p.employee_details?.employee_id || p.employee_id || p.employee_details?.id || p.employee || '');
                 if (!empId) return;
                 activeSet.add(empId);
 
-                if (!map[empId]) {
-                    map[empId] = {
-                        id: empId,
-                        name: `Employee ${empId}`,
-                        distance: 0,
-                        collection: 0,
-                        disbursement: 0,
-                        punches: 0
-                    };
-                }
+                if (!map[empId]) map[empId] = { id: empId, name: `Employee ${empId}`, distance: 0, collection: 0, disbursement: 0, punches: 0 };
 
                 const emp = map[empId];
                 const distance = Number(p.distance_from_last) || 0;
@@ -126,145 +80,57 @@ const AdminDashboard = () => {
                 emp.distance += distance;
                 emp.punches += 1;
                 totalDistance += distance;
-
-                if (p.visit_type === 'COLLECTION') {
-                    emp.collection += amount;
-                    collection += amount;
-                }
-
-                if (p.visit_type === 'DISBURSEMENT') {
-                    emp.disbursement += amount;
-                    disbursement += amount;
-                }
+                if (p.visit_type === 'COLLECTION') { emp.collection += amount; collection += amount; }
+                if (p.visit_type === 'DISBURSEMENT') { emp.disbursement += amount; disbursement += amount; }
             });
 
-            const totalEmployees = Math.max(
-                usersData.count || users.length,
-                Object.keys(map).length
-            );
-
+            const totalEmployees = Math.max(usersData.count || users.length, Object.keys(map).length);
             const today = new Date().toDateString();
-            const todayPunches = punches.filter(p =>
-                new Date(p.punched_at).toDateString() === today
-            ).length;
+            const todayPunches = punches.filter(p => new Date(p.punched_at).toDateString() === today).length;
 
             const trendMap = {};
             punches.forEach(p => {
                 const day = new Date(p.punched_at).toLocaleDateString();
-                if (!trendMap[day]) {
-                    trendMap[day] = { day, collection: 0, disbursement: 0 };
-                }
-                if (p.visit_type === 'COLLECTION') {
-                    trendMap[day].collection += Number(p.amount) || 0;
-                }
-                if (p.visit_type === 'DISBURSEMENT') {
-                    trendMap[day].disbursement += Number(p.amount) || 0;
-                }
+                if (!trendMap[day]) trendMap[day] = { day, collection: 0, disbursement: 0 };
+                if (p.visit_type === 'COLLECTION') trendMap[day].collection += Number(p.amount) || 0;
+                if (p.visit_type === 'DISBURSEMENT') trendMap[day].disbursement += Number(p.amount) || 0;
             });
 
             setChartData(Object.values(trendMap));
-            setStats({
-                totalEmployees,
-                activeEmployees: activeSet.size,
-                todayPunches,
-                pendingApprovals: approvals.length,
-                totalDistance: totalDistance.toFixed(2),
-                collection,
-                disbursement
-            });
-
+            setStats({ totalEmployees, activeEmployees: activeSet.size, todayPunches, pendingApprovals: approvals.length, totalDistance: totalDistance.toFixed(2), collection, disbursement });
         } catch (err) {
             console.error("Dashboard Error:", err);
         }
     }, [filters]);
 
-    useEffect(() => {
-        loadDashboard();
-    }, [loadDashboard]);
+    useEffect(() => { loadDashboard(); }, [loadDashboard]);
 
-    const netCash = useMemo(() => {
-        return (stats.collection || 0) - (stats.disbursement || 0);
-    }, [stats]);
+    const netCash = useMemo(() => (stats.collection || 0) - (stats.disbursement || 0), [stats]);
 
-    const handleFilterApply = (values) => {
-        setFilters(prev => ({ ...prev, ...values }));
-    };
-
-    const handleFilterClear = () => {
-        setFilters({
-            dateFrom: '',
-            dateTo: '',
-            state: '',
-            branch: '',
-            area: '',
-            employee: '',
-        });
-    };
+    const handleFilterApply = (values) => setFilters(prev => ({ ...prev, ...values }));
+    const handleFilterClear = () => setFilters({ dateFrom: '', dateTo: '', state: '', branch: '', area: '', employee: '' });
 
     if (loading) {
-        return (
-            <Box sx={{ p: 3 }}>
-                <Typography variant="h5" fontWeight="bold" mb={3}>
-                    Admin Dashboard
-                </Typography>
-                <PageSkeleton />
-            </Box>
-        );
+        return <Box sx={{ p: 3 }}><Typography variant="h5" fontWeight="bold" mb={3}>Admin Dashboard</Typography><PageSkeleton /></Box>;
     }
 
     return (
         <Box sx={{ p: 3 }}>
-            <Typography variant="h5" fontWeight="bold" mb={3}>
-                Admin Dashboard
-            </Typography>
+            <Typography variant="h5" fontWeight="bold" mb={3}>Admin Dashboard</Typography>
 
-            {/* ================= ADVANCED FILTER ================= */}
-            <AdvancedFilter
-                onApply={handleFilterApply}
-                onClear={handleFilterClear}
-                showDateRange={true}
-                extraFilters={(values, onChange) => (
-                    <>
-                        <Grid item xs={12} sm={6} md={3}>
-                            <Box sx={{ p: 1, border: '1px dashed #ccc', borderRadius: 1, textAlign: 'center' }}>
-                                <Typography variant="caption" color="text.secondary">
-                                    Location filters available in Organization module
-                                </Typography>
-                            </Box>
-                        </Grid>
-                    </>
-                )}
-            />
+            <AdvancedFilter onApply={handleFilterApply} onClear={handleFilterClear} showDateRange={true} />
 
-            {/* ================= KPI CARDS ================= */}
             <Grid container spacing={2}>
-                <Grid item xs={12} sm={6} md={3}>
-                    <StatCard title="Total Employees" value={stats.totalEmployees} icon={<People fontSize="large" color="primary" />} />
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <StatCard title="Active Today" value={stats.activeEmployees} icon={<TrendingUp fontSize="large" color="success" />} />
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <StatCard title="Punches Today" value={stats.todayPunches} icon={<Assignment fontSize="large" />} />
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <StatCard title="Distance (KM)" value={stats.totalDistance} icon={<LocationOn fontSize="large" />} />
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <StatCard title="Pending" value={stats.pendingApprovals} icon={<PendingActions fontSize="large" />} color="warning" />
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <StatCard title="Collection" value={`₹ ${Number(stats.collection || 0).toLocaleString()}`} icon={<CurrencyRupee fontSize="large" />} color="success" />
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <StatCard title="Disbursement" value={`₹ ${Number(stats.disbursement || 0).toLocaleString()}`} icon={<CurrencyRupee fontSize="large" />} color="error" />
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <StatCard title="Net Cash" value={`₹ ${Number(netCash).toLocaleString()}`} icon={<CurrencyRupee fontSize="large" />} color={netCash >= 0 ? 'success' : 'error'} />
-                </Grid>
+                <Grid item xs={12} sm={6} md={3}><StatCard title="Total Employees" value={stats.totalEmployees} icon={<People fontSize="large" color="primary" />} /></Grid>
+                <Grid item xs={12} sm={6} md={3}><StatCard title="Active Today" value={stats.activeEmployees} icon={<TrendingUp fontSize="large" color="success" />} /></Grid>
+                <Grid item xs={12} sm={6} md={3}><StatCard title="Punches Today" value={stats.todayPunches} icon={<Assignment fontSize="large" />} /></Grid>
+                <Grid item xs={12} sm={6} md={3}><StatCard title="Distance (KM)" value={stats.totalDistance} icon={<LocationOn fontSize="large" />} /></Grid>
+                <Grid item xs={12} sm={6} md={3}><StatCard title="Pending" value={stats.pendingApprovals} icon={<PendingActions fontSize="large" />} color="warning" /></Grid>
+                <Grid item xs={12} sm={6} md={3}><StatCard title="Collection" value={`₹ ${Number(stats.collection || 0).toLocaleString()}`} icon={<CurrencyRupee fontSize="large" />} color="success" /></Grid>
+                <Grid item xs={12} sm={6} md={3}><StatCard title="Disbursement" value={`₹ ${Number(stats.disbursement || 0).toLocaleString()}`} icon={<CurrencyRupee fontSize="large" />} color="error" /></Grid>
+                <Grid item xs={12} sm={6} md={3}><StatCard title="Net Cash" value={`₹ ${Number(netCash).toLocaleString()}`} icon={<CurrencyRupee fontSize="large" />} color={netCash >= 0 ? 'success' : 'error'} /></Grid>
             </Grid>
 
-            {/* ================= CHARTS ================= */}
             <Grid container spacing={3} mt={2}>
                 <Grid item xs={12} md={6}>
                     <Card>
@@ -283,26 +149,14 @@ const AdminDashboard = () => {
                         </CardContent>
                     </Card>
                 </Grid>
-
                 <Grid item xs={12} md={6}>
                     <Card>
                         <CardContent>
                             <Typography variant="h6" gutterBottom>Approval Status</Typography>
                             <ResponsiveContainer width="100%" height={250}>
                                 <PieChart>
-                                    <Pie
-                                        data={[
-                                            { name: 'Approved', value: 60 },
-                                            { name: 'Pending', value: stats.pendingApprovals || 10 },
-                                            { name: 'Rejected', value: 10 }
-                                        ]}
-                                        dataKey="value"
-                                        outerRadius={80}
-                                        label
-                                    >
-                                        {COLORS.map((c, i) => (
-                                            <Cell key={i} fill={c} />
-                                        ))}
+                                    <Pie data={[{ name: 'Approved', value: 60 }, { name: 'Pending', value: stats.pendingApprovals || 10 }, { name: 'Rejected', value: 10 }]} dataKey="value" outerRadius={80} label>
+                                        {COLORS.map((c, i) => <Cell key={i} fill={c} />)}
                                     </Pie>
                                     <Legend />
                                 </PieChart>
