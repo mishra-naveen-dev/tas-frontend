@@ -1,31 +1,24 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
     Box, Card, CardContent, Typography,
     Table, TableHead, TableRow, TableCell,
     TableBody, Grid, Chip, Divider, Avatar,
-    TextField, MenuItem, Stack, Button
 } from '@mui/material';
 
 import MapIcon from '@mui/icons-material/Map';
 
 import api from 'core/services/api';
 import EmployeeRouteModal from 'modules/employee/components/EmployeeRouteModal';
-import CascadingFilter from 'shared/components/CascadingFilter';
-import { TableSkeleton, PageSkeleton } from 'shared/components/SkeletonLoader';
+import AdvancedFilter from 'shared/components/AdvancedFilter';
+import { TableSkeleton } from 'shared/components/SkeletonLoader';
 
 const PunchDetails = () => {
-
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
-
     const [filters, setFilters] = useState({
-        from: '',
-        to: '',
-        employee: 'ALL',
-        type: 'ALL'
-    });
-
-    const [locationFilter, setLocationFilter] = useState({
+        dateFrom: '',
+        dateTo: '',
+        type: '',
         state: '',
         branch: '',
         area: '',
@@ -37,15 +30,16 @@ const PunchDetails = () => {
         employee: null
     });
 
-    // ================= FETCH =================
     const fetchPunches = async () => {
         setLoading(true);
         try {
-            const params = { ...filters };
-            if (locationFilter.state) params.state = locationFilter.state;
-            if (locationFilter.branch) params.branch = locationFilter.branch;
-            if (locationFilter.area) params.area = locationFilter.area;
-            if (locationFilter.employee) params.employee_id = locationFilter.employee;
+            const params = {};
+            if (filters.dateFrom) params.from = filters.dateFrom;
+            if (filters.dateTo) params.to = filters.dateTo;
+            if (filters.state) params.state = filters.state;
+            if (filters.branch) params.branch = filters.branch;
+            if (filters.area) params.area = filters.area;
+            if (filters.employee) params.employee_id = filters.employee;
 
             const res = await api.getPunchRecords(params);
             setData(res?.data?.results || res?.data || []);
@@ -58,9 +52,8 @@ const PunchDetails = () => {
 
     useEffect(() => {
         fetchPunches();
-    }, [locationFilter]);
+    }, [filters.dateFrom, filters.dateTo, filters.state, filters.branch, filters.area, filters.employee]);
 
-    // ================= HELPERS =================
     const getEmployee = (p) => ({
         id: p.employee_details?.employee_id || p.employee_id || 'N/A',
         name:
@@ -69,65 +62,20 @@ const PunchDetails = () => {
             `Emp ${p.employee_id || ''}`
     });
 
-    const getPunchBy = (p) => ({
-        id:
-            p.created_by_details?.employee_id ||
-            p.created_by ||
-            'N/A',
-        name:
-            p.created_by_details?.name ||
-            `User ${p.created_by || ''}`
-    });
-
     const safe = (v) => (v ? Number(v).toFixed(2) : '0.00');
 
-    // ================= EMPLOYEE LIST =================
-    const employeeOptions = useMemo(() => {
-        const map = new Map();
-
-        data.forEach(p => {
-            const emp = getEmployee(p);
-            map.set(emp.id, emp.name);
-        });
-
-        return Array.from(map.entries()).map(([id, name]) => ({
-            id,
-            name
-        }));
-    }, [data]);
-
-    // ================= FILTER =================
     const filteredData = useMemo(() => {
         let result = [...data];
 
-        if (filters.from) {
-            result = result.filter(p =>
-                new Date(p.punched_at) >= new Date(filters.from)
-            );
-        }
-
-        if (filters.to) {
-            result = result.filter(p =>
-                new Date(p.punched_at) <= new Date(filters.to)
-            );
-        }
-
-        if (filters.employee !== 'ALL') {
-            result = result.filter(p =>
-                getEmployee(p).id === filters.employee
-            );
-        }
-
-        if (filters.type !== 'ALL') {
+        if (filters.type) {
             result = result.filter(p =>
                 p.visit_type === filters.type || p.punch_type === filters.type
             );
         }
 
         return result;
-    }, [data, filters]);
+    }, [data, filters.type]);
 
-    // ================= GROUP =================
     const groupedData = useMemo(() => {
         const map = {};
 
@@ -148,200 +96,128 @@ const PunchDetails = () => {
         return Object.values(map);
     }, [filteredData]);
 
+    const handleFilterApply = (values) => {
+        setFilters(prev => ({ ...prev, ...values }));
+    };
+
+    const handleFilterClear = () => {
+        setFilters({
+            dateFrom: '',
+            dateTo: '',
+            type: '',
+            state: '',
+            branch: '',
+            area: '',
+            employee: '',
+        });
+    };
+
     return (
         <Box sx={{ p: 3 }}>
-
-            <Typography variant="h5" sx={{ mb: 3 }}>
+            <Typography variant="h5" fontWeight="bold" sx={{ mb: 3 }}>
                 Employee Punch Details
             </Typography>
 
-            {/* ================= LOCATION FILTER ================= */}
-            <CascadingFilter
-                onApply={(filters) => {
-                    setLocationFilter(filters);
-                }}
-                showUserFilter={true}
+            {/* ================= ADVANCED FILTER ================= */}
+            <AdvancedFilter
+                onApply={handleFilterApply}
+                onClear={handleFilterClear}
+                showDateRange={true}
+                showTypeFilter={true}
+                typeOptions={[
+                    { value: 'PUNCH_IN', label: 'Punch In' },
+                    { value: 'PUNCH_OUT', label: 'Punch Out' },
+                    { value: 'COLLECTION', label: 'Collection' },
+                    { value: 'DISBURSEMENT', label: 'Disbursement' },
+                ]}
+                showSearch={false}
                 compact={true}
             />
 
-            {/* ================= FILTER ================= */}
-            <Stack direction="row" spacing={2} mb={3} mt={2} flexWrap="wrap">
-
-                <TextField
-                    type="date"
-                    size="small"
-                    label="From"
-                    InputLabelProps={{ shrink: true }}
-                    onChange={(e) =>
-                        setFilters(prev => ({ ...prev, from: e.target.value }))
-                    }
-                />
-
-                <TextField
-                    type="date"
-                    size="small"
-                    label="To"
-                    InputLabelProps={{ shrink: true }}
-                    onChange={(e) =>
-                        setFilters(prev => ({ ...prev, to: e.target.value }))
-                    }
-                />
-
-                <TextField
-                    select
-                    size="small"
-                    label="Type"
-                    value={filters.type}
-                    onChange={(e) =>
-                        setFilters(prev => ({ ...prev, type: e.target.value }))
-                    }
-                >
-                    <MenuItem value="ALL">All</MenuItem>
-                    <MenuItem value="PUNCH_IN">Punch</MenuItem>
-                    <MenuItem value="COLLECTION">Collection</MenuItem>
-                    <MenuItem value="DISBURSEMENT">Disbursement</MenuItem>
-                </TextField>
-
-                <Button
-                    variant="outlined"
-                    onClick={() =>
-                        setFilters({
-                            from: '',
-                            to: '',
-                            employee: 'ALL',
-                            type: 'ALL'
-                        })
-                    }
-                >
-                    Reset
-                </Button>
-
-            </Stack>
-
             {/* ================= DATA ================= */}
             {loading ? (
-                <Box>
-                    <TableSkeleton rows={6} columns={8} />
-                </Box>
+                <TableSkeleton rows={6} columns={8} />
             ) : groupedData.length === 0 ? (
-                <Typography>No data available</Typography>
+                <Card sx={{ p: 4, textAlign: 'center' }}>
+                    <Typography color="text.secondary">No punch records found</Typography>
+                </Card>
             ) : (
                 <Grid container spacing={3}>
-
-                    {groupedData.map((emp, idx) => {
-
-                        const punches = emp.punches;
-
-                        return (
-                            <Grid item xs={12} key={idx}>
-
-                                <Card>
-                                    <CardContent>
-
-                                        {/* HEADER */}
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-
-                                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                <Avatar sx={{ bgcolor: 'primary.main', mr: 2 }}>
-                                                    {emp.employee_name?.charAt(0)}
-                                                </Avatar>
-
-                                                <Box>
-                                                    <Typography variant="h6">
-                                                        {emp.employee_name}
-                                                    </Typography>
-                                                    <Typography variant="caption">
-                                                        {emp.employee_id}
-                                                    </Typography>
-                                                </Box>
+                    {groupedData.map((emp, idx) => (
+                        <Grid item xs={12} key={idx}>
+                            <Card>
+                                <CardContent>
+                                    {/* HEADER */}
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                            <Avatar sx={{ bgcolor: 'primary.main', mr: 2 }}>
+                                                {emp.employee_name?.charAt(0)}
+                                            </Avatar>
+                                            <Box>
+                                                <Typography variant="h6">{emp.employee_name}</Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {emp.employee_id}
+                                                </Typography>
                                             </Box>
-
-                                            <Button
-                                                size="small"
-                                                startIcon={<MapIcon />}
-                                                onClick={() =>
-                                                    setRouteModal({
-                                                        open: true,
-                                                        employee: emp
-                                                    })
-                                                }
-                                            >
-                                                View Route
-                                            </Button>
-
                                         </Box>
 
-                                        <Divider sx={{ mb: 2 }} />
+                                        <Box sx={{ display: 'flex', gap: 1 }}>
+                                            <Chip label={`${emp.punches.length} Punches`} size="small" />
+                                            <Chip label={`${emp.punches.reduce((sum, p) => sum + Number(p.distance_from_last || 0), 0).toFixed(2)} km`} size="small" color="primary" />
+                                        </Box>
+                                    </Box>
 
-                                        <Table size="small">
-                                            <TableHead>
-                                                <TableRow>
-                                                    <TableCell>#</TableCell>
-                                                    <TableCell>Type</TableCell>
-                                                    <TableCell>Date</TableCell>
-                                                    <TableCell>Employee</TableCell>
-                                                    <TableCell>Punched By</TableCell>
-                                                    <TableCell>Distance (km)</TableCell>
-                                                    <TableCell>Current Address</TableCell>
-                                                    <TableCell>Customer Address</TableCell>
+                                    <Divider sx={{ mb: 2 }} />
+
+                                    <Table size="small">
+                                        <TableHead>
+                                            <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                                                <TableCell><strong>#</strong></TableCell>
+                                                <TableCell><strong>Type</strong></TableCell>
+                                                <TableCell><strong>Date/Time</strong></TableCell>
+                                                <TableCell><strong>Distance</strong></TableCell>
+                                                <TableCell><strong>Address</strong></TableCell>
+                                                <TableCell><strong>Amount</strong></TableCell>
+                                            </TableRow>
+                                        </TableHead>
+
+                                        <TableBody>
+                                            {emp.punches.map((p, i) => (
+                                                <TableRow key={i}>
+                                                    <TableCell>{i + 1}</TableCell>
+                                                    <TableCell>
+                                                        <Chip 
+                                                            label={p.visit_type || p.punch_type} 
+                                                            size="small" 
+                                                            color={
+                                                                p.punch_type === 'PUNCH_IN' ? 'success' : 
+                                                                p.punch_type === 'PUNCH_OUT' ? 'error' : 'default'
+                                                            }
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {new Date(p.punched_at).toLocaleString()}
+                                                    </TableCell>
+                                                    <TableCell>{safe(p.distance_from_last)} km</TableCell>
+                                                    <TableCell sx={{ maxWidth: 200 }}>
+                                                        <Typography variant="body2" noWrap>
+                                                            {p.current_address || '--'}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {p.amount ? `₹ ${Number(p.amount).toLocaleString()}` : '--'}
+                                                    </TableCell>
                                                 </TableRow>
-                                            </TableHead>
-
-                                            <TableBody>
-                                                {punches.map((p, i) => {
-                                                    const empInfo = getEmployee(p);
-                                                    const userInfo = getPunchBy(p);
-                                                    const isSame = empInfo.id === userInfo.id;
-
-                                                    return (
-                                                        <TableRow key={i}>
-
-                                                            <TableCell>{i + 1}</TableCell>
-
-                                                            <TableCell>
-                                                                <Chip label={p.visit_type || p.punch_type} size="small" />
-                                                            </TableCell>
-
-                                                            <TableCell>
-                                                                {new Date(p.punched_at).toLocaleString()}
-                                                            </TableCell>
-
-                                                            <TableCell>{empInfo.name}</TableCell>
-
-                                                            <TableCell>
-                                                                {isSame
-                                                                    ? <Chip label="Self" color="success" size="small" />
-                                                                    : userInfo.name}
-                                                            </TableCell>
-
-                                                            <TableCell>
-                                                                {safe(p.distance_from_last)} km
-                                                            </TableCell>
-
-                                                            <TableCell>
-                                                                {p.current_address || '--'}
-                                                            </TableCell>
-
-                                                            <TableCell>
-                                                                {p.customer_address || '--'}
-                                                            </TableCell>
-
-                                                        </TableRow>
-                                                    );
-                                                })}
-                                            </TableBody>
-                                        </Table>
-
-                                    </CardContent>
-                                </Card>
-
-                            </Grid>
-                        );
-                    })}
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    ))}
                 </Grid>
             )}
 
-            {/* ================= ROUTE MODAL ================= */}
             <EmployeeRouteModal
                 open={routeModal.open}
                 onClose={() => setRouteModal({ open: false, employee: null })}
@@ -350,7 +226,6 @@ const PunchDetails = () => {
                     p => (p.employee_details?.employee_id || p.employee_id) === routeModal.employee?.employee_id
                 )}
             />
-
         </Box>
     );
 };
