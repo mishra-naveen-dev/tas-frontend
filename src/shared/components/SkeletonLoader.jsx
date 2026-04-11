@@ -83,19 +83,12 @@ export const ChartSkeleton = () => (
     </Card>
 );
 
-export const AlertSkeleton = () => (
-    <Skeleton variant="rectangular" height={60} sx={{ borderRadius: 2, mb: 2 }} />
-);
-
 export const PageSkeleton = ({ hasStats = true, hasTable = true, hasChart = false }) => (
     <Box>
         <Skeleton variant="text" width={250} height={40} sx={{ mb: 0.5 }} />
         <Skeleton variant="text" width={350} height={22} sx={{ mb: 3 }} />
-        
         {hasStats && <StatsSkeleton count={4} />}
-        
         {hasChart && <Box sx={{ mt: 3 }}><ChartSkeleton /></Box>}
-        
         {hasTable && <Box sx={{ mt: 3 }}><TableSkeleton rows={6} columns={5} /></Box>}
     </Box>
 );
@@ -104,7 +97,6 @@ export const DetailPageSkeleton = () => (
     <Box>
         <Skeleton variant="text" width={200} height={40} sx={{ mb: 0.5 }} />
         <Skeleton variant="text" width={300} height={22} sx={{ mb: 3 }} />
-        
         <Card sx={{ borderRadius: 2, mb: 3 }}>
             <CardContent>
                 <Skeleton variant="text" width={150} height={28} sx={{ mb: 2 }} />
@@ -118,7 +110,6 @@ export const DetailPageSkeleton = () => (
                 </Grid>
             </CardContent>
         </Card>
-        
         <TableSkeleton rows={5} columns={4} />
     </Box>
 );
@@ -138,7 +129,7 @@ export const TimelineSkeleton = ({ items = 5 }) => (
     </Stack>
 );
 
-export default {
+const SkeletonLoaders = {
     TableSkeleton,
     CardSkeleton,
     StatsSkeleton,
@@ -146,8 +137,9 @@ export default {
     FormSkeleton,
     ListSkeleton,
     ChartSkeleton,
-    AlertSkeleton,
     PageSkeleton,
     DetailPageSkeleton,
     TimelineSkeleton,
 };
+
+export default SkeletonLoaders;
