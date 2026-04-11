@@ -15,6 +15,7 @@ import ProfileInfo from 'modules/profile/ProfileTabs/ProfileInfo';
 import ActivityTab from 'modules/profile/ProfileTabs/ActivityTab';
 import AllowanceTab from 'modules/profile/ProfileTabs/AllowanceTab';
 import SecurityTab from 'modules/profile/ProfileTabs/SecurityTab';
+import DeviceManagement from 'modules/profile/pages/DeviceManagement';
 
 
 const Profile = () => {
@@ -50,6 +51,7 @@ const Profile = () => {
                 <Tab label="Activity" />
                 <Tab label="Allowance" />
                 <Tab label="Security" />
+                <Tab label="Devices" />
             </Tabs>
 
             {/* TAB CONTENT */}
@@ -58,6 +60,7 @@ const Profile = () => {
                 {tab === 1 && <ActivityTab />}
                 {tab === 2 && <AllowanceTab />}
                 {tab === 3 && <SecurityTab />}
+                {tab === 4 && <DeviceManagement />}
             </Box>
         </Box>
 

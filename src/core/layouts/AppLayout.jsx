@@ -28,6 +28,7 @@ import {
     AccountCircle as AccountCircleIcon,
     Edit as EditIcon,
     ArrowBack as ArrowBackIcon,
+    Phonelink as PhonelinkIcon,
 } from '@mui/icons-material';
 
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -45,6 +46,7 @@ const ADMIN_MENU = [
     { text: 'Punch Corrections', icon: EditIcon, path: '/admin/punch-corrections' },
     { text: 'CRM Visits', icon: LocationIcon, path: '/admin/crm-visits' },
     { text: 'Profile Approvals', icon: AssignmentIcon, path: '/admin/profile-approval' },
+    { text: 'Device Management', icon: PhonelinkIcon, path: '/admin/device-management' },
     { text: 'Create User', icon: PeopleIcon, path: '/admin/create-user' },
 
 ];

@@ -40,6 +40,7 @@ const EmployeeTracking = lazy(() => import('modules/admin/pages/EmployeeTracking
 const CRMVisits = lazy(() => import('modules/admin/pages/CRMVisits'));
 const ProfileApproval = lazy(() => import('modules/admin/pages/ProfileApproval'));
 const AdminPunchCorrections = lazy(() => import('modules/admin/pages/AdminPunchCorrections'));
+const AdminDeviceManagement = lazy(() => import('modules/admin/pages/AdminDeviceManagement'));
 
 // ================= ROUTES =================
 const AppRoutes = () => {
@@ -237,6 +238,17 @@ const AppRoutes = () => {
                         <ProtectedRoute requiredRoles={['ADMIN', 'SUPER_ADMIN']}>
                             <AppLayout>
                                 <ProfileApproval />
+                            </AppLayout>
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/admin/device-management"
+                    element={
+                        <ProtectedRoute requiredRoles={['ADMIN', 'SUPER_ADMIN']}>
+                            <AppLayout>
+                                <AdminDeviceManagement />
                             </AppLayout>
                         </ProtectedRoute>
                     }

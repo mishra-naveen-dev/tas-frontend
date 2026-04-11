@@ -92,13 +92,48 @@ export const AuthProvider = ({ children }) => {
             };
 
         } catch (err) {
+            const errorData = err?.response?.data;
+            const errorCode = errorData?.code;
+            const errorMessage = errorData?.error || errorData?.detail || err?.message;
+
+            if (errorCode === 'DEVICE_PENDING_APPROVAL') {
+                return {
+                    success: false,
+                    message: "Your device is pending approval. Please wait for administrator to approve your device.",
+                    code: errorCode,
+                    device_pending: true
+                };
+            }
+
+            if (errorCode === 'DEVICE_REJECTED') {
+                return {
+                    success: false,
+                    message: "Your device has been rejected. Please contact your administrator.",
+                    code: errorCode,
+                    device_rejected: true
+                };
+            }
+
+            if (errorCode === 'DEVICE_BLOCKED' || errorCode === 'NEW_DEVICE_NOT_ALLOWED') {
+                return {
+                    success: false,
+                    message: "New devices are not allowed. Please use your registered device.",
+                    code: errorCode,
+                    device_blocked: true
+                };
+            }
+
+            if (errorCode === 'DEVICE_LIMIT_EXCEEDED') {
+                return {
+                    success: false,
+                    message: `Device limit reached. Maximum ${errorData?.max_devices || 5} devices allowed.`,
+                    code: errorCode
+                };
+            }
 
             return {
                 success: false,
-                message:
-                    err?.response?.data?.detail ||
-                    err?.message ||
-                    "Invalid username or password"
+                message: errorMessage || "Invalid username or password"
             };
         }
     };
