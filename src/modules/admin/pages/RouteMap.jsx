@@ -26,7 +26,7 @@ import {
 } from '@mui/material';
 import {
     Map as MapIcon,
-    DirectionsWalk as WalkIcon,
+    DirectionsWalk as DirectionsWalkIcon,
     Timeline as TimelineIcon,
     Close as CloseIcon,
     CalendarMonth as CalendarIcon,

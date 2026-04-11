@@ -405,6 +405,38 @@ class APIService {
     getDailyRoute(employeeId, params = {}) {
         return this.get(`/attendance/routes/daily/${employeeId}/`, params);
     }
+
+    // Backdate Correction System
+    getCorrectionRequests(params = {}) {
+        return this.get('/attendance/correction-requests/', params);
+    }
+
+    getMyCorrectionRequests() {
+        return this.get('/attendance/correction-requests/my_requests/');
+    }
+
+    getPendingCorrections() {
+        return this.get('/attendance/correction-requests/pending/');
+    }
+
+    createCorrectionRequest(data) {
+        return this.post('/attendance/correction-requests/', data);
+    }
+
+    reviewCorrection(correctionId, action, comment = '') {
+        return this.post(`/attendance/correction-requests/${correctionId}/review/`, {
+            action,
+            comment
+        });
+    }
+
+    getCorrectionSettings() {
+        return this.get('/attendance/correction-settings/');
+    }
+
+    updateCorrectionSettings(data) {
+        return this.patch('/attendance/correction-settings/', data);
+    }
 }
 
 export default APIService.getInstance();

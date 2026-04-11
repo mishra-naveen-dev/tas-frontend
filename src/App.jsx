@@ -43,6 +43,8 @@ const AdminPunchCorrections = lazy(() => import('modules/admin/pages/AdminPunchC
 const AdminDeviceManagement = lazy(() => import('modules/admin/pages/AdminDeviceManagement'));
 const PasswordManagement = lazy(() => import('modules/admin/pages/PasswordManagement'));
 const RouteMap = lazy(() => import('modules/admin/pages/RouteMap'));
+const CorrectionApproval = lazy(() => import('modules/admin/pages/CorrectionApproval'));
+const CorrectionSettings = lazy(() => import('modules/admin/pages/CorrectionSettings'));
 
 // ================= ROUTES =================
 const AppRoutes = () => {
@@ -273,6 +275,28 @@ const AppRoutes = () => {
                         <ProtectedRoute requiredRoles={['ADMIN', 'SUPER_ADMIN']}>
                             <AppLayout>
                                 <RouteMap />
+                            </AppLayout>
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/admin/correction-approval"
+                    element={
+                        <ProtectedRoute requiredRoles={['ADMIN', 'SUPER_ADMIN']}>
+                            <AppLayout>
+                                <CorrectionApproval />
+                            </AppLayout>
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/admin/correction-settings"
+                    element={
+                        <ProtectedRoute requiredRoles={['SUPER_ADMIN']}>
+                            <AppLayout>
+                                <CorrectionSettings />
                             </AppLayout>
                         </ProtectedRoute>
                     }

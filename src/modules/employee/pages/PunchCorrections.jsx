@@ -1,355 +1,463 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-    Container,
+    Box,
     Typography,
     Paper,
+    Grid,
+    TextField,
+    Button,
+    MenuItem,
+    Alert,
+    CircularProgress,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Chip,
     Table,
     TableBody,
     TableCell,
     TableContainer,
     TableHead,
     TableRow,
-    Button,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    TextField,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
-    Chip,
-    Box,
-    Alert,
-    Snackbar,
-    IconButton
+    Tooltip,
 } from '@mui/material';
-
-import { Add as AddIcon, Edit as EditIcon } from '@mui/icons-material';
-
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { TimePicker } from '@mui/x-date-pickers/TimePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-
+import {
+    Add as AddIcon,
+    Edit as EditIcon,
+    History as HistoryIcon,
+    Send as SendIcon,
+    Place as PlaceIcon,
+} from '@mui/icons-material';
 import api from 'core/services/api';
 
-const PunchCorrections = () => {
-
-    const [corrections, setCorrections] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [open, setOpen] = useState(false);
-    const [editingCorrection, setEditingCorrection] = useState(null);
-
-    const [formData, setFormData] = useState({
-        correction_type: 'ADD_PUNCH',
-        existing_punch: '',
-        requested_date: new Date(),
-        requested_time: new Date(),
-        requested_punch_type: 'PUNCH_IN',
-        reason: ''
+const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null }) => {
+    const [form, setForm] = useState({
+        correction_type: 'ADD',
+        original_punch_id: '',
+        correction_date: '',
+        correction_time: '',
+        punch_type: 'PUNCH_IN',
+        from_address: '',
+        to_address: '',
+        reason: '',
     });
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
 
-    const [snackbar, setSnackbar] = useState({
-        open: false,
-        message: '',
-        severity: 'success'
-    });
-
-    // ================= FETCH =================
     useEffect(() => {
-        fetchCorrections();
-    }, []);
-
-    const fetchCorrections = async () => {
-        try {
-            const response = await api.getCorrections();
-
-            const data = response.data;
-
-            setCorrections(
-                Array.isArray(data) ? data : data.results || []
-            );
-
-        } catch (error) {
-
-
-            setSnackbar({
-                open: true,
-                message: 'Server error while loading corrections',
-                severity: 'error'
+        if (editPunch) {
+            setForm({
+                ...form,
+                correction_type: 'EDIT',
+                original_punch_id: editPunch.id,
+                correction_date: editPunch.punch_date,
+                correction_time: new Date(editPunch.punched_at).toTimeString().slice(0, 5),
+                punch_type: editPunch.punch_type,
+                from_address: `Lat: ${editPunch.latitude}, Lng: ${editPunch.longitude}`,
+                reason: '',
             });
+        } else {
+            setForm({
+                correction_type: 'ADD',
+                original_punch_id: '',
+                correction_date: '',
+                correction_time: '',
+                punch_type: 'PUNCH_IN',
+                from_address: '',
+                to_address: '',
+                reason: '',
+            });
+        }
+    }, [editPunch]);
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setForm(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSubmit = async () => {
+        setError('');
+        setSuccess('');
+
+        if (!form.correction_date || !form.correction_time || !form.from_address || !form.reason) {
+            setError('All fields are required');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await api.createCorrectionRequest(form);
+            setSuccess('Correction request submitted successfully!');
+            setTimeout(() => {
+                onSuccess();
+                onClose();
+            }, 2000);
+        } catch (err) {
+            setError(err.response?.data?.error || 'Failed to submit correction request');
         } finally {
             setLoading(false);
         }
     };
 
-    // ================= DIALOG =================
-    const handleOpenDialog = (correction) => {
+    return (
+        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+            <DialogTitle>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <AddIcon color="primary" />
+                    New Correction Request
+                </Box>
+            </DialogTitle>
+            <DialogContent>
+                {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+                {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
-        if (correction) {
-            setEditingCorrection(correction);
+                <Grid container spacing={2} sx={{ mt: 1 }}>
+                    <Grid item xs={12} sm={6}>
+                        <TextField
+                            select
+                            fullWidth
+                            size="small"
+                            label="Correction Type"
+                            name="correction_type"
+                            value={form.correction_type}
+                            onChange={handleChange}
+                        >
+                            <MenuItem value="ADD">Add Punch</MenuItem>
+                            <MenuItem value="EDIT">Edit Punch</MenuItem>
+                            <MenuItem value="DELETE">Delete Punch</MenuItem>
+                        </TextField>
+                    </Grid>
 
-            setFormData({
-                correction_type: correction.correction_type,
-                existing_punch: correction.existing_punch?.id?.toString() || '',
-                requested_date: new Date(correction.requested_date),
-                requested_time: new Date(`1970-01-01T${correction.requested_time}`),
-                requested_punch_type: correction.requested_punch_type,
-                reason: correction.reason
-            });
+                    <Grid item xs={12} sm={6}>
+                        <TextField
+                            select
+                            fullWidth
+                            size="small"
+                            label="Punch Type"
+                            name="punch_type"
+                            value={form.punch_type}
+                            onChange={handleChange}
+                        >
+                            <MenuItem value="PUNCH_IN">Punch In</MenuItem>
+                            <MenuItem value="PUNCH_OUT">Punch Out</MenuItem>
+                        </TextField>
+                    </Grid>
 
-        } else {
-            setEditingCorrection(null);
+                    <Grid item xs={12} sm={6}>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            type="date"
+                            label="Date"
+                            name="correction_date"
+                            value={form.correction_date}
+                            onChange={handleChange}
+                            InputLabelProps={{ shrink: true }}
+                        />
+                    </Grid>
 
-            setFormData({
-                correction_type: 'ADD_PUNCH',
-                existing_punch: '',
-                requested_date: new Date(),
-                requested_time: new Date(),
-                requested_punch_type: 'PUNCH_IN',
-                reason: ''
-            });
-        }
+                    <Grid item xs={12} sm={6}>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            type="time"
+                            label="Time"
+                            name="correction_time"
+                            value={form.correction_time}
+                            onChange={handleChange}
+                            InputLabelProps={{ shrink: true }}
+                        />
+                    </Grid>
 
-        setOpen(true);
-    };
+                    <Grid item xs={12}>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            label="From Address"
+                            name="from_address"
+                            value={form.from_address}
+                            onChange={handleChange}
+                            placeholder="Enter full address or coordinates (lat, lng)"
+                            InputProps={{
+                                startAdornment: <PlaceIcon sx={{ mr: 1, color: 'action.active' }} />,
+                            }}
+                        />
+                    </Grid>
 
-    const handleCloseDialog = () => {
-        setOpen(false);
-        setEditingCorrection(null);
-    };
+                    <Grid item xs={12}>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            label="To Address (Optional)"
+                            name="to_address"
+                            value={form.to_address}
+                            onChange={handleChange}
+                            placeholder="Enter full address or coordinates (lat, lng)"
+                            InputProps={{
+                                startAdornment: <PlaceIcon sx={{ mr: 1, color: 'action.active' }} />,
+                            }}
+                        />
+                    </Grid>
 
-    // ================= SUBMIT =================
-    const handleSubmit = async () => {
+                    <Grid item xs={12}>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            label="Reason"
+                            name="reason"
+                            value={form.reason}
+                            onChange={handleChange}
+                            multiline
+                            rows={3}
+                            placeholder="Explain why this correction is needed..."
+                        />
+                    </Grid>
+                </Grid>
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={onClose} disabled={loading}>Cancel</Button>
+                <Button
+                    variant="contained"
+                    onClick={handleSubmit}
+                    disabled={loading}
+                    startIcon={loading ? <CircularProgress size={20} /> : <SendIcon />}
+                >
+                    Submit Request
+                </Button>
+            </DialogActions>
+        </Dialog>
+    );
+};
 
-        if (!formData.reason) {
-            setSnackbar({
-                open: true,
-                message: "Reason is required",
-                severity: "error"
-            });
-            return;
-        }
-
-        try {
-
-            const payload = {
-                correction_type: formData.correction_type,
-                existing_punch: formData.existing_punch || null,
-                requested_date: formData.requested_date.toISOString().split('T')[0],
-                requested_time: formData.requested_time.toTimeString().split(' ')[0],
-                requested_punch_type: formData.requested_punch_type,
-                reason: formData.reason
-            };
-
-
-            if (editingCorrection) {
-                await api.patch(
-                    `/attendance/corrections/${editingCorrection.id}/`,
-                    payload
-                );
-
-                setSnackbar({
-                    open: true,
-                    message: 'Correction updated successfully',
-                    severity: 'success'
-                });
-
-            } else {
-                await api.createCorrection(payload);
-
-                setSnackbar({
-                    open: true,
-                    message: 'Correction submitted successfully',
-                    severity: 'success'
-                });
-            }
-
-            handleCloseDialog();
-            fetchCorrections();
-
-        } catch (error) {
-
-
-            setSnackbar({
-                open: true,
-                message:
-                    error?.response?.data?.detail ||
-                    JSON.stringify(error?.response?.data),
-                severity: 'error'
-            });
-        }
-    };
-
-    // ================= HELPERS =================
+const CorrectionHistory = ({ corrections }) => {
     const getStatusColor = (status) => {
         switch (status) {
-            case 'PENDING': return 'warning';
             case 'APPROVED': return 'success';
             case 'REJECTED': return 'error';
+            case 'PENDING': return 'warning';
             default: return 'default';
         }
     };
 
-    const getCorrectionTypeLabel = (type) => {
+    const getTypeIcon = (type) => {
         switch (type) {
-            case 'ADD_PUNCH': return 'Add Punch';
-            case 'EDIT_PUNCH': return 'Edit Punch';
-            case 'DELETE_PUNCH': return 'Delete Punch';
-            default: return type;
+            case 'ADD': return '+';
+            case 'EDIT': return '✎';
+            case 'DELETE': return '✕';
+            default: return '';
         }
     };
 
-    // ================= UI =================
-    if (loading) {
-        return (
-            <Container sx={{ mt: 4 }}>
-                <Typography>Loading...</Typography>
-            </Container>
-        );
-    }
+    return (
+        <TableContainer component={Paper}>
+            <Table size="small">
+                <TableHead>
+                    <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                        <TableCell><strong>Type</strong></TableCell>
+                        <TableCell><strong>Date</strong></TableCell>
+                        <TableCell><strong>Time</strong></TableCell>
+                        <TableCell><strong>Punch</strong></TableCell>
+                        <TableCell><strong>From Address</strong></TableCell>
+                        <TableCell><strong>Distance</strong></TableCell>
+                        <TableCell><strong>Status</strong></TableCell>
+                        <TableCell><strong>Submitted</strong></TableCell>
+                    </TableRow>
+                </TableHead>
+                <TableBody>
+                    {corrections.length === 0 ? (
+                        <TableRow>
+                            <TableCell colSpan={8} sx={{ textAlign: 'center', py: 3 }}>
+                                No correction requests found
+                            </TableCell>
+                        </TableRow>
+                    ) : (
+                        corrections.map((corr) => (
+                            <TableRow key={corr.id} hover>
+                                <TableCell>
+                                    <Chip
+                                        size="small"
+                                        label={`${getTypeIcon(corr.correction_type)} ${corr.correction_type}`}
+                                        color={corr.correction_type === 'ADD' ? 'success' : corr.correction_type === 'DELETE' ? 'error' : 'primary'}
+                                    />
+                                </TableCell>
+                                <TableCell>{corr.correction_date}</TableCell>
+                                <TableCell>{corr.correction_time}</TableCell>
+                                <TableCell>
+                                    <Chip
+                                        label={corr.punch_type === 'PUNCH_IN' ? 'IN' : 'OUT'}
+                                        size="small"
+                                        color={corr.punch_type === 'PUNCH_IN' ? 'success' : 'warning'}
+                                    />
+                                </TableCell>
+                                <TableCell>
+                                    <Tooltip title={corr.from_address}>
+                                        <Typography variant="body2" sx={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {corr.from_address}
+                                        </Typography>
+                                    </Tooltip>
+                                </TableCell>
+                                <TableCell>{corr.calculated_distance ? `${corr.calculated_distance} km` : '-'}</TableCell>
+                                <TableCell>
+                                    <Chip label={corr.status} color={getStatusColor(corr.status)} size="small" />
+                                </TableCell>
+                                <TableCell>
+                                    {new Date(corr.created_at).toLocaleDateString()}
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    )}
+                </TableBody>
+            </Table>
+        </TableContainer>
+    );
+};
+
+const PunchCorrections = () => {
+    const [corrections, setCorrections] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [createDialog, setCreateDialog] = useState(false);
+    const [editPunch, setEditPunch] = useState(null);
+    const [recentPunches, setRecentPunches] = useState([]);
+
+    const fetchCorrections = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await api.getMyCorrectionRequests();
+            const data = res.data;
+            setCorrections(Array.isArray(data) ? data : (data.results || []));
+        } catch (err) {
+            console.error('Failed to fetch corrections:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    const fetchRecentPunches = useCallback(async () => {
+        try {
+            const res = await api.getPunchRecords({ page_size: 20 });
+            setRecentPunches(res.data.results || res.data || []);
+        } catch (err) {
+            console.error('Failed to fetch punches:', err);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchCorrections();
+        fetchRecentPunches();
+    }, [fetchCorrections, fetchRecentPunches]);
+
+    const handleEditPunch = (punch) => {
+        setEditPunch(punch);
+        setCreateDialog(true);
+    };
 
     return (
-        <LocalizationProvider dateAdapter={AdapterDateFns}>
-            <Container sx={{ mt: 4 }}>
-
-                <Box display="flex" justifyContent="space-between" mb={3}>
-                    <Typography variant="h4">
-                        Punch Correction Requests
+        <Box sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Box>
+                    <Typography variant="h5" fontWeight="bold">
+                        Punch Corrections
                     </Typography>
-
-                    <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={() => handleOpenDialog()}
-                    >
-                        New Request
-                    </Button>
+                    <Typography variant="caption" color="text.secondary">
+                        Request corrections for attendance punches
+                    </Typography>
                 </Box>
+                <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={() => {
+                        setEditPunch(null);
+                        setCreateDialog(true);
+                    }}
+                >
+                    New Request
+                </Button>
+            </Box>
 
-                <TableContainer component={Paper}>
-                    <Table>
-                        <TableHead>
-                            <TableRow>
-                                <TableCell>Type</TableCell>
-                                <TableCell>Date</TableCell>
-                                <TableCell>Time</TableCell>
-                                <TableCell>Status</TableCell>
-                                <TableCell>Actions</TableCell>
-                            </TableRow>
-                        </TableHead>
+            <Alert severity="info" sx={{ mb: 3 }}>
+                <Typography variant="body2">
+                    <strong>How it works:</strong> Submit a correction request if you need to add, edit, or delete a punch.
+                    Admin will review and approve/reject your request.
+                </Typography>
+            </Alert>
 
-                        <TableBody>
-                            {corrections.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} align="center">
-                                        No correction requests found
-                                    </TableCell>
+            {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                    <CircularProgress />
+                </Box>
+            ) : (
+                <>
+                    <Typography variant="h6" sx={{ mb: 2 }}>
+                        Recent Punches (Available for Correction)
+                    </Typography>
+                    <TableContainer component={Paper} sx={{ mb: 3 }}>
+                        <Table size="small">
+                            <TableHead>
+                                <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                                    <TableCell><strong>Date</strong></TableCell>
+                                    <TableCell><strong>Time</strong></TableCell>
+                                    <TableCell><strong>Type</strong></TableCell>
+                                    <TableCell><strong>Location</strong></TableCell>
+                                    <TableCell><strong>Actions</strong></TableCell>
                                 </TableRow>
-                            ) : (
-                                corrections.map((c) => (
-                                    <TableRow key={c.id}>
-                                        <TableCell>{getCorrectionTypeLabel(c.correction_type)}</TableCell>
-                                        <TableCell>{c.requested_date}</TableCell>
-                                        <TableCell>{c.requested_time}</TableCell>
-
+                            </TableHead>
+                            <TableBody>
+                                {recentPunches.slice(0, 5).map((punch) => (
+                                    <TableRow key={punch.id} hover>
+                                        <TableCell>{punch.punch_date}</TableCell>
+                                        <TableCell>
+                                            {new Date(punch.punched_at).toLocaleTimeString('en-IN', {
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                            })}
+                                        </TableCell>
                                         <TableCell>
                                             <Chip
-                                                label={c.status}
-                                                color={getStatusColor(c.status)}
+                                                label={punch.punch_type === 'PUNCH_IN' ? 'IN' : 'OUT'}
+                                                size="small"
+                                                color={punch.punch_type === 'PUNCH_IN' ? 'success' : 'warning'}
                                             />
                                         </TableCell>
-
                                         <TableCell>
-                                            {c.status === 'PENDING' && (
-                                                <IconButton onClick={() => handleOpenDialog(c)}>
-                                                    <EditIcon />
-                                                </IconButton>
-                                            )}
+                                            <Typography variant="caption">
+                                                {punch.latitude?.toFixed(4)}, {punch.longitude?.toFixed(4)}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Button
+                                                size="small"
+                                                variant="outlined"
+                                                startIcon={<EditIcon />}
+                                                onClick={() => handleEditPunch(punch)}
+                                            >
+                                                Edit
+                                            </Button>
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
 
-                {/* DIALOG */}
-                <Dialog open={open} onClose={handleCloseDialog}>
-                    <DialogTitle>
-                        {editingCorrection ? 'Edit Request' : 'New Request'}
-                    </DialogTitle>
+                    <Typography variant="h6" sx={{ mb: 2 }}>
+                        My Correction Requests
+                    </Typography>
+                    <CorrectionHistory corrections={corrections} />
+                </>
+            )}
 
-                    <DialogContent>
-
-                        <FormControl fullWidth sx={{ mt: 2 }}>
-                            <InputLabel>Correction Type</InputLabel>
-                            <Select
-                                value={formData.correction_type}
-                                onChange={(e) =>
-                                    setFormData({ ...formData, correction_type: e.target.value })
-                                }
-                            >
-                                <MenuItem value="ADD_PUNCH">Add Punch</MenuItem>
-                                <MenuItem value="EDIT_PUNCH">Edit Punch</MenuItem>
-                                <MenuItem value="DELETE_PUNCH">Delete Punch</MenuItem>
-                            </Select>
-                        </FormControl>
-
-                        <DatePicker
-                            label="Date"
-                            value={formData.requested_date}
-                            onChange={(d) =>
-                                setFormData({ ...formData, requested_date: d || new Date() })
-                            }
-                            slotProps={{ textField: { fullWidth: true, sx: { mt: 2 } } }}
-                        />
-
-                        <TimePicker
-                            label="Time"
-                            value={formData.requested_time}
-                            onChange={(t) =>
-                                setFormData({ ...formData, requested_time: t || new Date() })
-                            }
-                            slotProps={{ textField: { fullWidth: true, sx: { mt: 2 } } }}
-                        />
-
-                        <TextField
-                            fullWidth
-                            label="Reason"
-                            multiline
-                            rows={3}
-                            sx={{ mt: 2 }}
-                            value={formData.reason}
-                            onChange={(e) =>
-                                setFormData({ ...formData, reason: e.target.value })
-                            }
-                        />
-
-                    </DialogContent>
-
-                    <DialogActions>
-                        <Button onClick={handleCloseDialog}>Cancel</Button>
-                        <Button onClick={handleSubmit} variant="contained">
-                            Submit
-                        </Button>
-                    </DialogActions>
-                </Dialog>
-
-                <Snackbar
-                    open={snackbar.open}
-                    autoHideDuration={3000}
-                    onClose={() => setSnackbar({ ...snackbar, open: false })}
-                >
-                    <Alert severity={snackbar.severity}>
-                        {snackbar.message}
-                    </Alert>
-                </Snackbar>
-
-            </Container>
-        </LocalizationProvider>
+            <CreateCorrectionRequest
+                open={createDialog}
+                onClose={() => {
+                    setCreateDialog(false);
+                    setEditPunch(null);
+                }}
+                onSuccess={fetchCorrections}
+                editPunch={editPunch}
+            />
+        </Box>
     );
 };
 

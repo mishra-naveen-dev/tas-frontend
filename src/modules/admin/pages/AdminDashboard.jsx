@@ -21,6 +21,7 @@ import {
 
 import { useNavigate } from 'react-router-dom';
 import api from 'core/services/api';
+import CascadingFilter from 'shared/components/CascadingFilter';
 
 import {
     LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -59,13 +60,30 @@ const AdminDashboard = () => {
         to: ''
     });
 
+    const [locationFilter, setLocationFilter] = useState({
+        state: '',
+        branch: '',
+        area: '',
+        employee: '',
+    });
+
+    const handleFilterApply = (filters) => {
+        setLocationFilter(filters);
+    };
+
     // ================= LOAD =================
     const loadDashboard = useCallback(async () => {
         try {
+            const params = { ...dateRange };
+            if (locationFilter.state) params.state = locationFilter.state;
+            if (locationFilter.branch) params.branch = locationFilter.branch;
+            if (locationFilter.area) params.area = locationFilter.area;
+            if (locationFilter.employee) params.employee = locationFilter.employee;
+
             const [usersRes, punchesRes, approvalsRes] = await Promise.all([
-                api.getUsers(),
-                api.getPunchRecords(dateRange),
-                api.getPendingApprovals()
+                api.getUsers(params),
+                api.getPunchRecords(params),
+                api.getPendingApprovals(params)
             ]);
 
             const usersData = usersRes?.data || {};
@@ -192,7 +210,7 @@ const AdminDashboard = () => {
         } catch (err) {
             console.error("Dashboard Error:", err);
         }
-    }, [dateRange]);
+    }, [dateRange, locationFilter]);
 
     useEffect(() => {
         loadDashboard();
@@ -231,6 +249,13 @@ const AdminDashboard = () => {
                     Apply
                 </Button>
             </Stack>
+
+            {/* ================= LOCATION FILTER ================= */}
+            <CascadingFilter
+                onApply={handleFilterApply}
+                showUserFilter={true}
+                compact={true}
+            />
 
             {/* ================= KPI ================= */}
             <Grid container spacing={2}>
