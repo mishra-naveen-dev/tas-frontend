@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Box,
     Drawer,
@@ -20,6 +20,8 @@ import {
     Paper,
     Popper,
     ClickAwayListener,
+    Badge,
+    Button,
 } from '@mui/material';
 
 import {
@@ -40,11 +42,15 @@ import {
     Map as MapIcon,
     SystemUpdateAlt as UpdateIcon,
     Rule as RuleIcon,
+    AccountTree as HierarchyIcon,
+    Notifications as NotificationsIcon,
+    Circle as CircleIcon,
 } from '@mui/icons-material';
 
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from 'modules/auth/contexts/AuthContext';
 import PunchButton from 'modules/attendance/components/PunchButton';
+import api from 'core/services/api';
 
 const DRAWER_WIDTH = 250;
 
@@ -77,6 +83,7 @@ const SUPER_ADMIN_MENU = [
     { text: 'Device Management', icon: PhonelinkIcon, path: '/admin/device-management' },
     { text: 'Password Management', icon: LockIcon, path: '/admin/password-management' },
     { text: 'Correction Settings', icon: RuleIcon, path: '/admin/correction-settings' },
+    { text: 'Approval Hierarchy', icon: HierarchyIcon, path: '/admin/approval-hierarchy' },
     { text: 'Create User', icon: PeopleIcon, path: '/admin/create-user' },
 ];
 
@@ -99,6 +106,31 @@ const AppLayout = ({ children }) => {
     const [anchorEl, setAnchorEl] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchOpen, setSearchOpen] = useState(false);
+    const [notificationAnchor, setNotificationAnchor] = useState(null);
+    const [notifications, setNotifications] = useState([]);
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    // ================= NOTIFICATIONS =================
+    useEffect(() => {
+        if (!user) return;
+        
+        const fetchNotifications = async () => {
+            try {
+                const [countRes, notifRes] = await Promise.all([
+                    api.getUnreadNotificationCount(),
+                    api.getNotifications({ page_size: 10 })
+                ]);
+                setUnreadCount(countRes.data.unread_count);
+                setNotifications(notifRes.data.results || notifRes.data);
+            } catch (err) {
+                console.error('Failed to fetch notifications:', err);
+            }
+        };
+
+        fetchNotifications();
+        const interval = setInterval(fetchNotifications, 60000);
+        return () => clearInterval(interval);
+    }, [user]);
 
     // ================= SAFETY =================
     if (!user) return null;
@@ -126,6 +158,19 @@ const AppLayout = ({ children }) => {
 
     const handleMenuOpen = (e) => setAnchorEl(e.currentTarget);
     const handleMenuClose = () => setAnchorEl(null);
+
+    const handleNotificationOpen = (e) => setNotificationAnchor(e.currentTarget);
+    const handleNotificationClose = () => setNotificationAnchor(null);
+
+    const handleMarkAllRead = async () => {
+        try {
+            await api.markAllNotificationsRead();
+            setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+            setUnreadCount(0);
+        } catch (err) {
+            console.error('Failed to mark all as read:', err);
+        }
+    };
 
     const handleLogout = () => {
         logout();
@@ -357,6 +402,67 @@ const AppLayout = ({ children }) => {
 
                     {/* USER SECTION */}
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        {/* NOTIFICATION BELL */}
+                        <IconButton color="inherit" onClick={handleNotificationOpen}>
+                            <Badge badgeContent={unreadCount} color="warning">
+                                <NotificationsIcon />
+                            </Badge>
+                        </IconButton>
+
+                        {/* NOTIFICATION DROPDOWN */}
+                        <Menu
+                            anchorEl={notificationAnchor}
+                            open={Boolean(notificationAnchor)}
+                            onClose={handleNotificationClose}
+                            PaperProps={{
+                                sx: { width: 360, maxHeight: 400 }
+                            }}
+                        >
+                            <Box sx={{ px: 2, py: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Typography variant="subtitle1" fontWeight="bold">Notifications</Typography>
+                                {unreadCount > 0 && (
+                                    <Button size="small" onClick={handleMarkAllRead}>
+                                        Mark all read
+                                    </Button>
+                                )}
+                            </Box>
+                            <Divider />
+                            {notifications.length > 0 ? (
+                                notifications.map((notif) => (
+                                    <MenuItem
+                                        key={notif.id}
+                                        onClick={handleNotificationClose}
+                                        sx={{
+                                            backgroundColor: notif.is_read ? 'transparent' : 'rgba(211, 47, 47, 0.08)',
+                                            whiteSpace: 'normal',
+                                            py: 1.5
+                                        }}
+                                    >
+                                        <Box sx={{ width: '100%' }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                                                {!notif.is_read && (
+                                                    <CircleIcon sx={{ fontSize: 8, color: '#d32f2f', mr: 1 }} />
+                                                )}
+                                                <Typography variant="subtitle2" sx={{ fontWeight: notif.is_read ? 'normal' : 'bold' }}>
+                                                    {notif.title}
+                                                </Typography>
+                                            </Box>
+                                            <Typography variant="body2" color="text.secondary" sx={{ ml: notif.is_read ? 0 : 2 }}>
+                                                {notif.message}
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary" sx={{ ml: notif.is_read ? 0 : 2 }}>
+                                                {new Date(notif.created_at).toLocaleString()}
+                                            </Typography>
+                                        </Box>
+                                    </MenuItem>
+                                ))
+                            ) : (
+                                <Box sx={{ p: 3, textAlign: 'center' }}>
+                                    <Typography color="text.secondary">No notifications</Typography>
+                                </Box>
+                            )}
+                        </Menu>
+
                         <Box sx={{ mr: 2 }}>
                             <Typography>{user?.first_name || 'User'}</Typography>
                             <Typography sx={{ fontSize: 12 }}>
