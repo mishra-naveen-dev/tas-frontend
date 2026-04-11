@@ -1,6 +1,6 @@
 {
   "files": {
-    "main.js": "/tas-frontend/static/js/main.c41b6a28.js",
+    "main.js": "/tas-frontend/static/js/main.646c5ea9.js",
     "static/js/268.f12bcd7e.chunk.js": "/tas-frontend/static/js/268.f12bcd7e.chunk.js",
     "static/js/311.66acfe70.chunk.js": "/tas-frontend/static/js/311.66acfe70.chunk.js",
     "static/js/999.d4f39728.chunk.js": "/tas-frontend/static/js/999.d4f39728.chunk.js",
@@ -43,7 +43,7 @@
     "static/js/94.5a2cd6f6.chunk.js": "/tas-frontend/static/js/94.5a2cd6f6.chunk.js",
     "static/js/753.08f15275.chunk.js": "/tas-frontend/static/js/753.08f15275.chunk.js",
     "index.html": "/tas-frontend/index.html",
-    "main.c41b6a28.js.map": "/tas-frontend/static/js/main.c41b6a28.js.map",
+    "main.646c5ea9.js.map": "/tas-frontend/static/js/main.646c5ea9.js.map",
     "268.f12bcd7e.chunk.js.map": "/tas-frontend/static/js/268.f12bcd7e.chunk.js.map",
     "311.66acfe70.chunk.js.map": "/tas-frontend/static/js/311.66acfe70.chunk.js.map",
     "999.d4f39728.chunk.js.map": "/tas-frontend/static/js/999.d4f39728.chunk.js.map",
@@ -87,6 +87,6 @@
     "753.08f15275.chunk.js.map": "/tas-frontend/static/js/753.08f15275.chunk.js.map"
   },
   "entrypoints": [
-    "static/js/main.c41b6a28.js"
+    "static/js/main.646c5ea9.js"
   ]
 }
