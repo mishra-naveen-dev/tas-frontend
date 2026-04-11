@@ -392,6 +392,19 @@ class APIService {
     resetUserPasswordExpiry(userId, type = 'expiry') {
         return this.post('/auth/password-expiry/reset/', { user_id: userId, type });
     }
+
+    // Smart Distance System - Route APIs
+    getRouteHistory(params = {}) {
+        return this.get('/attendance/routes/history/', params);
+    }
+
+    getRouteDetail(sessionId) {
+        return this.get(`/attendance/routes/detail/${sessionId}/`);
+    }
+
+    getDailyRoute(employeeId, params = {}) {
+        return this.get(`/attendance/routes/daily/${employeeId}/`, params);
+    }
 }
 
 export default APIService.getInstance();

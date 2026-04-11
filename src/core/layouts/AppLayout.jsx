@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
     Box,
     Drawer,
@@ -37,6 +37,7 @@ import {
     Lock as LockIcon,
     Search as SearchIcon,
     Clear as ClearIcon,
+    Map as MapIcon,
 } from '@mui/icons-material';
 
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -51,6 +52,7 @@ const ADMIN_MENU = [
     { text: 'Pending Approvals', icon: AssignmentIcon, path: '/admin/pending-approvals' },
     { text: 'Punch Details', icon: AssignmentIcon, path: '/admin/punch-details' },
     { text: 'Employee Tracking', icon: PeopleIcon, path: '/admin/employee-tracking' },
+    { text: 'Route Map', icon: MapIcon, path: '/admin/route-map' },
     { text: 'Punch Corrections', icon: EditIcon, path: '/admin/punch-corrections' },
     { text: 'CRM Visits', icon: LocationIcon, path: '/admin/crm-visits' },
     { text: 'Profile Approvals', icon: AssignmentIcon, path: '/admin/profile-approval' },
@@ -64,6 +66,7 @@ const SUPER_ADMIN_MENU = [
     { text: 'Pending Approvals', icon: AssignmentIcon, path: '/admin/pending-approvals' },
     { text: 'Punch Details', icon: AssignmentIcon, path: '/admin/punch-details' },
     { text: 'Employee Tracking', icon: PeopleIcon, path: '/admin/employee-tracking' },
+    { text: 'Route Map', icon: MapIcon, path: '/admin/route-map' },
     { text: 'Punch Corrections', icon: EditIcon, path: '/admin/punch-corrections' },
     { text: 'CRM Visits', icon: LocationIcon, path: '/admin/crm-visits' },
     { text: 'Profile Approvals', icon: AssignmentIcon, path: '/admin/profile-approval' },
@@ -91,10 +94,27 @@ const AppLayout = ({ children }) => {
     const [anchorEl, setAnchorEl] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [searchOpen, setSearchOpen] = useState(false);
-    const searchRef = useState(null);
 
     // ================= SAFETY =================
     if (!user) return null;
+
+    // ================= MENU =================
+    const getMenuItems = () => {
+        if (userRole === 'SUPER_ADMIN') return SUPER_ADMIN_MENU;
+        if (userRole === 'ADMIN') return ADMIN_MENU;
+        return EMPLOYEE_MENU;
+    };
+
+    const menuItems = getMenuItems();
+
+    // ================= SEARCH =================
+    const getSearchResults = () => {
+        if (!searchQuery.trim()) return [];
+        const query = searchQuery.toLowerCase();
+        return menuItems.filter(item =>
+            item.text.toLowerCase().includes(query)
+        );
+    };
 
     // ================= HANDLERS =================
     const handleDrawerToggle = () => setMobileOpen(prev => !prev);
@@ -131,24 +151,6 @@ const AppLayout = ({ children }) => {
         '/employee/dashboard',
         '/admin/dashboard'
     ].includes(location.pathname);
-
-    // ================= MENU =================
-    const getMenuItems = () => {
-        if (userRole === 'SUPER_ADMIN') return SUPER_ADMIN_MENU;
-        if (userRole === 'ADMIN') return ADMIN_MENU;
-        return EMPLOYEE_MENU;
-    };
-
-    const menuItems = getMenuItems();
-
-    // ================= SEARCH =================
-    const searchResults = useMemo(() => {
-        if (!searchQuery.trim()) return [];
-        const query = searchQuery.toLowerCase();
-        return menuItems.filter(item =>
-            item.text.toLowerCase().includes(query)
-        );
-    }, [searchQuery, menuItems]);
 
     const handleSearchChange = (e) => {
         setSearchQuery(e.target.value);
@@ -221,8 +223,8 @@ const AppLayout = ({ children }) => {
                         >
                             <ClickAwayListener onClickAway={() => setSearchOpen(false)}>
                                 <List dense>
-                                    {searchResults.length > 0 ? (
-                                        searchResults.map((item) => (
+                                    {getSearchResults().length > 0 ? (
+                                        getSearchResults().map((item) => (
                                             <ListItem key={item.text} disablePadding>
                                                 <ListItemButton
                                                     onClick={() => handleResultClick(item.path)}
@@ -248,7 +250,7 @@ const AppLayout = ({ children }) => {
                                                 primaryTypographyProps={{
                                                     fontSize: 13,
                                                     color: 'text.secondary',
-                                                    sx={{ textAlign: 'center', py: 2 }
+                                                    sx: { textAlign: 'center', py: 2 },
                                                 }}
                                             />
                                         </ListItem>

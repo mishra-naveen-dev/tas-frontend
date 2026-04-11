@@ -42,6 +42,7 @@ const ProfileApproval = lazy(() => import('modules/admin/pages/ProfileApproval')
 const AdminPunchCorrections = lazy(() => import('modules/admin/pages/AdminPunchCorrections'));
 const AdminDeviceManagement = lazy(() => import('modules/admin/pages/AdminDeviceManagement'));
 const PasswordManagement = lazy(() => import('modules/admin/pages/PasswordManagement'));
+const RouteMap = lazy(() => import('modules/admin/pages/RouteMap'));
 
 // ================= ROUTES =================
 const AppRoutes = () => {
@@ -261,6 +262,17 @@ const AppRoutes = () => {
                         <ProtectedRoute requiredRoles={['SUPER_ADMIN']}>
                             <AppLayout>
                                 <PasswordManagement />
+                            </AppLayout>
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/admin/route-map"
+                    element={
+                        <ProtectedRoute requiredRoles={['ADMIN', 'SUPER_ADMIN']}>
+                            <AppLayout>
+                                <RouteMap />
                             </AppLayout>
                         </ProtectedRoute>
                     }
