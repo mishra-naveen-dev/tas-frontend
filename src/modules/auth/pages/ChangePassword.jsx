@@ -21,7 +21,7 @@ import { useAuth } from 'modules/auth/contexts/AuthContext';
 const ChangePassword = () => {
 
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, setUser, login } = useAuth();
 
     // ================= PROTECT ROUTE =================
     useEffect(() => {
@@ -85,25 +85,50 @@ const ChangePassword = () => {
             const username = user?.username;
             
             if (username) {
-                // Call login API using api.login which includes device headers
-                const loginRes = await api.login(username, password);
+                // Call login API using AuthContext login which includes device headers
+                const loginRes = await login(username, password);
 
-                // Show success and redirect
-                setSuccess("Password updated successfully! Redirecting...");
-                
-                setTimeout(() => {
-                    const role = loginRes.role;
-                    if (role === 'EMPLOYEE') {
-                        navigate('/employee/dashboard', { replace: true });
-                    } else {
-                        navigate('/admin/dashboard', { replace: true });
+                if (loginRes.success) {
+                    // Update user context with fresh data
+                    if (loginRes.user) {
+                        setUser({
+                            ...loginRes.user,
+                            role_name: loginRes.role,
+                            force_password_change: false
+                        });
                     }
-                }, 1000);
+
+                    // Show success and redirect
+                    setSuccess("Password updated successfully! Redirecting...");
+                    
+                    setTimeout(() => {
+                        if (loginRes.force_password_change) {
+                            // Still needs password change - redirect back
+                            navigate('/change-password', { replace: true });
+                        } else {
+                            // Success - go to dashboard
+                            if (loginRes.role === 'EMPLOYEE') {
+                                navigate('/employee/dashboard', { replace: true });
+                            } else {
+                                navigate('/admin/dashboard', { replace: true });
+                            }
+                        }
+                    }, 1000);
+                } else {
+                    // Login failed - redirect to login
+                    setSuccess("Password updated. Please login again.");
+                    setTimeout(() => {
+                        sessionStorage.clear();
+                        setUser(null);
+                        navigate('/login', { replace: true });
+                    }, 1200);
+                }
             } else {
                 // Fallback: redirect to login
                 setSuccess("Password updated successfully. Please login again.");
                 setTimeout(() => {
                     sessionStorage.clear();
+                    setUser(null);
                     navigate('/login', { replace: true });
                 }, 1200);
             }

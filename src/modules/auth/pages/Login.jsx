@@ -82,7 +82,7 @@ const Login = () => {
             }
 
             // 🔥 FORCE PASSWORD CHANGE
-            if (res.force_password_change) {
+            if (res.force_password_change === true) {
                 navigate('/change-password', { replace: true });
                 return;
             }
