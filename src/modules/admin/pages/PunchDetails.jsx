@@ -1,8 +1,8 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
     Box, Card, CardContent, Typography,
     Table, TableHead, TableRow, TableCell,
-    TableBody, Grid, Chip, Skeleton, Divider, Avatar,
+    TableBody, Grid, Chip, Divider, Avatar,
     TextField, MenuItem, Stack, Button
 } from '@mui/material';
 
@@ -11,6 +11,7 @@ import MapIcon from '@mui/icons-material/Map';
 import api from 'core/services/api';
 import EmployeeRouteModal from 'modules/employee/components/EmployeeRouteModal';
 import CascadingFilter from 'shared/components/CascadingFilter';
+import { TableSkeleton, PageSkeleton } from 'shared/components/SkeletonLoader';
 
 const PunchDetails = () => {
 
@@ -219,7 +220,9 @@ const PunchDetails = () => {
 
             {/* ================= DATA ================= */}
             {loading ? (
-                <Skeleton variant="rectangular" height={300} />
+                <Box>
+                    <TableSkeleton rows={6} columns={8} />
+                </Box>
             ) : groupedData.length === 0 ? (
                 <Typography>No data available</Typography>
             ) : (

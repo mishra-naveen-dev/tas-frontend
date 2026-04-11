@@ -10,6 +10,7 @@ import DistanceChart from 'modules/attendance/components/DistanceChart';
 import AllowanceTrendChart from 'modules/employee/components/AllowanceTrendChart';
 import { useAuth } from 'modules/auth/contexts/AuthContext';
 import PunchButton from 'modules/attendance/components/PunchButton';
+import { StatsSkeleton, ChartSkeleton, TableSkeleton } from 'shared/components/SkeletonLoader';
 
 const MapView = React.lazy(() => import('modules/attendance/components/MapView'));
 

@@ -15,6 +15,7 @@ import {
 
 import api from 'core/services/api';
 import DistanceChart from 'modules/attendance/components/DistanceChart';
+import { TableSkeleton, ChartSkeleton } from 'shared/components/SkeletonLoader';
 
 const AllowanceHistory = () => {
 
@@ -116,7 +117,14 @@ const AllowanceHistory = () => {
         setOpen(true);
     };
 
-    if (loading) return <CircularProgress />;
+    if (loading) {
+        return (
+            <Box sx={{ p: 3 }}>
+                <Typography variant="h5" sx={{ mb: 1 }}>Allowance History</Typography>
+                <TableSkeleton rows={6} columns={5} />
+            </Box>
+        );
+    }
 
     return (
         <Box sx={{ p: 3 }}>

@@ -20,6 +20,8 @@ import {
     EventNote as WindowIcon,
 } from '@mui/icons-material';
 import api from 'core/services/api';
+import { FormSkeleton } from 'shared/components/SkeletonLoader';
+import { Skeleton } from '@mui/material';
 
 const CorrectionSettings = () => {
     const [settings, setSettings] = useState({
@@ -72,8 +74,9 @@ const CorrectionSettings = () => {
 
     if (loading) {
         return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                <CircularProgress />
+            <Box sx={{ p: 3, maxWidth: 600 }}>
+                <Typography variant="h5" sx={{ mb: 3 }}>Correction Settings</Typography>
+                <FormSkeleton fields={4} />
             </Box>
         );
     }

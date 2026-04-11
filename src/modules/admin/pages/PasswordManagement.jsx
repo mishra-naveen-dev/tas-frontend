@@ -35,6 +35,8 @@ import {
     Person as PersonIcon,
 } from '@mui/icons-material';
 import api from 'core/services/api';
+import { TableSkeleton, StatsSkeleton } from 'shared/components/SkeletonLoader';
+import { Skeleton } from '@mui/material';
 
 const PasswordManagement = () => {
     const [passwordData, setPasswordData] = useState({ users: [], total_users: 0, password_expiry_days: 90 });
@@ -115,8 +117,12 @@ const PasswordManagement = () => {
 
     if (loading) {
         return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                <CircularProgress />
+            <Box sx={{ p: 3 }}>
+                <Typography variant="h5" sx={{ mb: 1 }}>Password Expiry Management</Typography>
+                <Box sx={{ mb: 2 }}>
+                    <Skeleton variant="rectangular" height={70} sx={{ borderRadius: 2 }} />
+                </Box>
+                <TableSkeleton rows={6} columns={6} />
             </Box>
         );
     }
