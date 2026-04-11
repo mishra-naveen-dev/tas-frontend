@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
     Box,
     Typography,
-    Paper,
     Grid,
     TextField,
     Button,
@@ -17,9 +16,8 @@ import {
 import {
     Save as SaveIcon,
     AccessTime as TimeIcon,
-    CalendarMonth as CalendarIcon,
-    Number as NumberIcon,
     LocationOn as LocationIcon,
+    EventNote as WindowIcon,
 } from '@mui/icons-material';
 import api from 'core/services/api';
 
@@ -27,7 +25,6 @@ const CorrectionSettings = () => {
     const [settings, setSettings] = useState({
         correction_window_days: 7,
         allow_month_end_corrections: false,
-        max_corrections_per_month: 5,
         require_geolocation: true,
     });
     const [loading, setLoading] = useState(true);
@@ -89,7 +86,7 @@ const CorrectionSettings = () => {
                         Correction Settings
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                        Configure backdate correction rules for all employees
+                        Configure backdate correction window rules for all employees
                     </Typography>
                 </Box>
                 <Button
@@ -104,6 +101,12 @@ const CorrectionSettings = () => {
 
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
             {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
+
+            <Alert severity="info" sx={{ mb: 3 }}>
+                <Typography variant="body2">
+                    <strong>Note:</strong> Employees can make unlimited corrections, but ALL corrections must be made within the correction window period before it closes.
+                </Typography>
+            </Alert>
 
             <Grid container spacing={3}>
                 <Grid item xs={12} md={6}>
@@ -120,20 +123,14 @@ const CorrectionSettings = () => {
                                 label="Correction Window (Days)"
                                 value={settings.correction_window_days}
                                 onChange={(e) => handleChange('correction_window_days', parseInt(e.target.value) || 0)}
-                                helperText="Number of days allowed for backdate corrections from punch date"
+                                helperText="Days allowed for backdate corrections from punch date"
                                 inputProps={{ min: 1, max: 365 }}
                                 sx={{ mb: 2 }}
                             />
 
-                            <FormControlLabel
-                                control={
-                                    <Switch
-                                        checked={settings.allow_month_end_corrections}
-                                        onChange={(e) => handleChange('allow_month_end_corrections', e.target.checked)}
-                                    />
-                                }
-                                label="Allow corrections after month end"
-                            />
+                            <Alert severity="warning" sx={{ mb: 2 }}>
+                                Example: If set to 7 days, employees can only correct punches within 7 days of the original punch.
+                            </Alert>
                         </CardContent>
                     </Card>
                 </Grid>
@@ -142,20 +139,24 @@ const CorrectionSettings = () => {
                     <Card>
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                                <NumberIcon color="primary" />
-                                <Typography variant="h6">Limits</Typography>
+                                <WindowIcon color="primary" />
+                                <Typography variant="h6">Window Closing</Typography>
                             </Box>
 
-                            <TextField
-                                fullWidth
-                                type="number"
-                                label="Max Corrections Per Month"
-                                value={settings.max_corrections_per_month}
-                                onChange={(e) => handleChange('max_corrections_per_month', parseInt(e.target.value) || 0)}
-                                helperText="Maximum corrections allowed per employee per month"
-                                inputProps={{ min: 1, max: 50 }}
-                                sx={{ mb: 2 }}
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={settings.allow_month_end_corrections}
+                                        onChange={(e) => handleChange('allow_month_end_corrections', e.target.checked)}
+                                    />
+                                }
+                                label="Allow corrections after window closes"
                             />
+
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                                When disabled: Corrections MUST be made before window closes.
+                                When enabled: Employees can correct anytime (overrides window).
+                            </Typography>
                         </CardContent>
                     </Card>
                 </Grid>
@@ -165,7 +166,7 @@ const CorrectionSettings = () => {
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                                 <LocationIcon color="primary" />
-                                <Typography variant="h6">Validation</Typography>
+                                <Typography variant="h6">Location Validation</Typography>
                             </Box>
 
                             <FormControlLabel
@@ -175,7 +176,7 @@ const CorrectionSettings = () => {
                                         onChange={(e) => handleChange('require_geolocation', e.target.checked)}
                                     />
                                 }
-                                label="Require valid geolocation for corrections"
+                                label="Require valid location for corrections"
                             />
 
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
@@ -198,7 +199,7 @@ const CorrectionSettings = () => {
                                         Correction Window
                                     </Typography>
                                     <Typography variant="body1" fontWeight="bold">
-                                        {settings.correction_window_days} days
+                                        {settings.correction_window_days} days after punch
                                     </Typography>
                                 </Box>
 
@@ -206,10 +207,10 @@ const CorrectionSettings = () => {
 
                                 <Box>
                                     <Typography variant="body2" color="text.secondary">
-                                        Max Per Month
+                                        Window Closing Rule
                                     </Typography>
                                     <Typography variant="body1" fontWeight="bold">
-                                        {settings.max_corrections_per_month} corrections
+                                        {settings.allow_month_end_corrections ? 'Can correct anytime' : 'Must correct before window closes'}
                                     </Typography>
                                 </Box>
 
@@ -217,10 +218,10 @@ const CorrectionSettings = () => {
 
                                 <Box>
                                     <Typography variant="body2" color="text.secondary">
-                                        Month End Allowed
+                                        Max Corrections
                                     </Typography>
-                                    <Typography variant="body1" fontWeight="bold">
-                                        {settings.allow_month_end_corrections ? 'Yes' : 'No'}
+                                    <Typography variant="body1" fontWeight="bold" color="success.main">
+                                        Unlimited
                                     </Typography>
                                 </Box>
 
