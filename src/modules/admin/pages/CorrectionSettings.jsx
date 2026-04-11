@@ -18,7 +18,7 @@ import {
     Save as SaveIcon,
     AccessTime as TimeIcon,
     CalendarMonth as CalendarIcon,
-    Number as NumberIcon,
+    FormatListNumbered as NumberIcon,
     LocationOn as LocationIcon,
 } from '@mui/icons-material';
 import api from 'core/services/api';
