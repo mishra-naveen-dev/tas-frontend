@@ -15,14 +15,8 @@ import {
     TextField,
     Grid,
     Chip,
-    Dialog,
-    DialogTitle,
-    DialogContent,
     IconButton,
     Divider,
-    List,
-    ListItem,
-    ListItemText,
 } from '@mui/material';
 import {
     Map as MapIcon,
@@ -47,9 +41,6 @@ const RouteMap = () => {
     const [selectedSession, setSelectedSession] = useState(null);
     const [routeDetail, setRouteDetail] = useState(null);
     const [detailLoading, setDetailLoading] = useState(false);
-    const [dailyRoutes, setDailyRoutes] = useState({});
-    const [selectedEmployee, setSelectedEmployee] = useState(null);
-    const [employees, setEmployees] = useState([]);
 
     const fetchRouteHistory = useCallback(async () => {
         setLoading(true);
@@ -97,19 +88,6 @@ const RouteMap = () => {
             alert('Failed to load route details');
         } finally {
             setDetailLoading(false);
-        }
-    };
-
-    const fetchDailyRoute = async (employeeId) => {
-        try {
-            const res = await api.getDailyRoute(employeeId, { date: selectedDate });
-            setDailyRoutes(prev => ({
-                ...prev,
-                [employeeId]: res.data
-            }));
-            setSelectedEmployee(employeeId);
-        } catch (err) {
-            console.error('Failed to fetch daily route:', err);
         }
     };
 
@@ -323,8 +301,8 @@ const RouteMap = () => {
                                         <>
                                             <Alert severity="info" sx={{ mb: 2 }}>
                                                 <Typography variant="body2">
-                                                    <strong>{routeDetail.session.employee_name}</strong> - 
-                                                    Distance: <strong>{routeDetail.total_distance.toFixed(2)} km</strong> | 
+                                                    <strong>{routeDetail.session?.employee_name}</strong> - 
+                                                    Distance: <strong>{Number(routeDetail.total_distance || 0).toFixed(2)} km</strong> | 
                                                     Points: <strong>{routeDetail.total_points}</strong>
                                                 </Typography>
                                             </Alert>
@@ -391,7 +369,7 @@ const RouteMap = () => {
                                                         <Typography variant="caption" display="block">
                                                             Distance
                                                         </Typography>
-                                                        <Typography variant="h6">{routeDetail.total_distance.toFixed(2)} km</Typography>
+                                                        <Typography variant="h6">{Number(routeDetail.total_distance || 0).toFixed(2)} km</Typography>
                                                     </Paper>
                                                 </Grid>
                                                 <Grid item xs={6} sm={3}>

@@ -7,7 +7,8 @@ import {
     Typography,
     Button,
     Stack,
-    TextField
+    TextField,
+    CircularProgress
 } from '@mui/material';
 
 import {
@@ -16,12 +17,14 @@ import {
     LocationOn,
     TrendingUp,
     PendingActions,
-    CurrencyRupee
+    CurrencyRupee,
+    Map as MapIcon
 } from '@mui/icons-material';
 
 import { useNavigate } from 'react-router-dom';
 import api from 'core/services/api';
 import CascadingFilter from 'shared/components/CascadingFilter';
+import { StatsSkeleton, PageSkeleton } from 'shared/components/SkeletonLoader';
 
 import {
     LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -54,6 +57,7 @@ const AdminDashboard = () => {
 
     const [stats, setStats] = useState({});
     const [chartData, setChartData] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     const [dateRange, setDateRange] = useState({
         from: '',
@@ -73,6 +77,7 @@ const AdminDashboard = () => {
 
     // ================= LOAD =================
     const loadDashboard = useCallback(async () => {
+        setLoading(true);
         try {
             const params = { ...dateRange };
             if (locationFilter.state) params.state = locationFilter.state;
@@ -209,6 +214,8 @@ const AdminDashboard = () => {
 
         } catch (err) {
             console.error("Dashboard Error:", err);
+        } finally {
+            setLoading(false);
         }
     }, [dateRange, locationFilter]);
 
@@ -219,6 +226,17 @@ const AdminDashboard = () => {
     const netCash = useMemo(() => {
         return (stats.collection || 0) - (stats.disbursement || 0);
     }, [stats]);
+
+    if (loading) {
+        return (
+            <Box sx={{ p: 3 }}>
+                <Typography variant="h5" fontWeight="bold" mb={3}>
+                    Admin Dashboard
+                </Typography>
+                <PageSkeleton />
+            </Box>
+        );
+    }
 
     return (
         <Box sx={{ p: 3 }}>
