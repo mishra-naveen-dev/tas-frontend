@@ -30,6 +30,7 @@ import {
     Place as PlaceIcon,
 } from '@mui/icons-material';
 import api from 'core/services/api';
+import { TableSkeleton, FormSkeleton } from 'shared/components/SkeletonLoader';
 
 const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null }) => {
     const [form, setForm] = useState({
@@ -384,9 +385,7 @@ const PunchCorrections = () => {
             </Alert>
 
             {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                    <CircularProgress />
-                </Box>
+                <TableSkeleton rows={5} columns={5} />
             ) : (
                 <>
                     <Typography variant="h6" sx={{ mb: 2 }}>

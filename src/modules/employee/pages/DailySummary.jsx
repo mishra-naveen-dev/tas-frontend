@@ -2,13 +2,14 @@ import React, { useEffect, useState, useMemo } from 'react';
 import {
     Box, Card, CardContent, Typography,
     Table, TableHead, TableRow, TableCell,
-    TableBody, Skeleton, Alert, Chip,
+    TableBody, Alert, Chip,
     Grid, ToggleButton, ToggleButtonGroup,
     TextField
 } from '@mui/material';
 
 import api from 'core/services/api';
 import DistanceChart from 'modules/attendance/components/DistanceChart';
+import { TableSkeleton, StatsSkeleton, ChartSkeleton } from 'shared/components/SkeletonLoader';
 
 const DailySummary = () => {
 
@@ -184,7 +185,7 @@ const DailySummary = () => {
                 <CardContent>
 
                     {loading ? (
-                        <Skeleton height={200} />
+                        <TableSkeleton rows={6} columns={7} />
                     ) : view === 'chart' ? (
                         <DistanceChart data={chartData} />
                     ) : (

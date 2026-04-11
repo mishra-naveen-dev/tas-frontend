@@ -47,6 +47,7 @@ import {
     PersonOff as ResetUserIcon,
 } from '@mui/icons-material';
 import api from 'core/services/api';
+import { TableSkeleton } from 'shared/components/SkeletonLoader';
 
 const getPlatformIcon = (platform) => {
     switch (platform) {
@@ -240,8 +241,13 @@ const AdminDeviceManagement = () => {
 
     if (loading) {
         return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                <CircularProgress />
+            <Box sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+                    <Typography variant="h6" fontWeight="bold">
+                        Device Management
+                    </Typography>
+                </Box>
+                <TableSkeleton rows={8} columns={7} />
             </Box>
         );
     }

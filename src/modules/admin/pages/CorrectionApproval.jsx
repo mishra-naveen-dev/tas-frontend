@@ -38,6 +38,7 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from 'core/services/api';
+import { TableSkeleton } from 'shared/components/SkeletonLoader';
 
 const CorrectionApproval = () => {
     const [corrections, setCorrections] = useState([]);
@@ -332,9 +333,7 @@ const CorrectionApproval = () => {
             </Tabs>
 
             {loading ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                    <CircularProgress />
-                </Box>
+                <TableSkeleton rows={6} columns={8} />
             ) : (
                 <TableContainer component={Paper}>
                     <Table>

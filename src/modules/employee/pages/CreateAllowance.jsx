@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import api from 'core/services/api';
+import { FormSkeleton } from 'shared/components/SkeletonLoader';
 
 const CreateAllowance = () => {
 

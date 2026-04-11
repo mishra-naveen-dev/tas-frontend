@@ -14,6 +14,8 @@ import {
 
 import api from 'core/services/api';
 import { useAuth } from 'modules/auth/contexts/AuthContext.jsx';
+import { FormSkeleton } from 'shared/components/SkeletonLoader';
+import { Skeleton } from '@mui/material';
 
 const CreateUser = () => {
 
@@ -38,6 +40,7 @@ const CreateUser = () => {
     const [areas, setAreas] = useState([]);
 
     const [loading, setLoading] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(true);
     const [success, setSuccess] = useState('');
     const [error, setError] = useState('');
 
@@ -49,13 +52,12 @@ const CreateUser = () => {
     }, [userRole]);
 
     const fetchInitialData = async () => {
+        setInitialLoading(true);
         try {
             const [rolesRes, statesRes] = await Promise.all([
                 api.getRoles(),
                 api.getStates()
             ]);
-
-
 
             setRoles(rolesRes.data || []);
             setStates(statesRes.data || []);
@@ -63,6 +65,8 @@ const CreateUser = () => {
         } catch (err) {
             console.error("FETCH ERROR:", err);
             setRoles([]);
+        } finally {
+            setInitialLoading(false);
         }
     };
 
@@ -162,6 +166,9 @@ const CreateUser = () => {
                     {error && <Alert severity="error">{error}</Alert>}
                     {success && <Alert severity="success">{success}</Alert>}
 
+                    {initialLoading ? (
+                        <FormSkeleton fields={8} />
+                    ) : (
                     <Grid container spacing={2} sx={{ mt: 1 }}>
 
                         <Grid item xs={12} md={6}>
@@ -304,13 +311,14 @@ const CreateUser = () => {
                         </Grid>
 
                     </Grid>
+                    )}
 
                     <Button
                         fullWidth
                         variant="contained"
                         sx={{ mt: 3 }}
                         onClick={handleSubmit}
-                        disabled={loading}
+                        disabled={loading || initialLoading}
                     >
                         {loading ? <CircularProgress size={24} /> : "Create User"}
                     </Button>

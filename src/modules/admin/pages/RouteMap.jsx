@@ -51,20 +51,6 @@ const RouteMap = () => {
                 date_to: selectedDate
             });
             setSessions(res.data.sessions || []);
-            
-            const uniqueEmployees = [];
-            const empMap = {};
-            (res.data.sessions || []).forEach(s => {
-                if (!empMap[s.employee_id]) {
-                    empMap[s.employee_id] = true;
-                    uniqueEmployees.push({
-                        id: s.employee_id,
-                        name: s.employee_name,
-                        code: s.employee_code
-                    });
-                }
-            });
-            setEmployees(uniqueEmployees);
         } catch (err) {
             console.error('Failed to fetch route history:', err);
             setError('Failed to load route history');
