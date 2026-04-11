@@ -1,31 +1,40 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { Box, Grid, Card, CardContent, Typography } from '@mui/material';
 import { People, Assignment, LocationOn, TrendingUp, PendingActions, CurrencyRupee } from '@mui/icons-material';
 import api from 'core/services/api';
 import AdvancedFilter from 'shared/components/AdvancedFilter';
-import { PageSkeleton } from 'shared/components/SkeletonLoader';
+import { StatsSkeleton } from 'shared/components/SkeletonLoader';
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Legend, ResponsiveContainer, Cell } from 'recharts';
 
-const StatCard = React.memo(({ title, value, icon, color }) => (
+const StatCard = ({ title, value, icon, color }) => (
     <Card sx={{ borderRadius: 3 }}>
         <CardContent>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box>
                     <Typography variant="body2" color="text.secondary">{title}</Typography>
-                    <Typography variant="h5" fontWeight="bold" color={color || 'primary'}>{value}</Typography>
+                    <Typography variant="h5" fontWeight="bold" color={color || 'primary'}>{value ?? 0}</Typography>
                 </Box>
                 {icon}
             </Box>
         </CardContent>
     </Card>
-));
+);
 
 const COLORS = ['#1976d2', '#2e7d32', '#d32f2f'];
 
 const AdminDashboard = () => {
-    const [stats, setStats] = useState({});
+    const [stats, setStats] = useState({
+        totalEmployees: 0,
+        activeEmployees: 0,
+        todayPunches: 0,
+        pendingApprovals: 0,
+        totalDistance: '0.00',
+        collection: 0,
+        disbursement: 0
+    });
     const [chartData, setChartData] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
+    const [initialLoad, setInitialLoad] = useState(true);
     const [filters, setFilters] = useState({
         dateFrom: '',
         dateTo: '',
@@ -35,8 +44,14 @@ const AdminDashboard = () => {
         employee: '',
     });
 
-    const loadDashboard = useCallback(async () => {
-        setLoading(true);
+    const isFetching = useRef(false);
+
+    const loadDashboard = async () => {
+        if (isFetching.current) return;
+        isFetching.current = true;
+        
+        if (initialLoad) setLoading(true);
+        
         try {
             const params = {};
             if (filters.dateFrom) params.from = filters.dateFrom;
@@ -47,9 +62,9 @@ const AdminDashboard = () => {
             if (filters.employee) params.employee = filters.employee;
 
             const [usersRes, punchesRes, approvalsRes] = await Promise.all([
-                api.getUsers(params),
-                api.getPunchRecords(params),
-                api.getPendingApprovals(params)
+                api.getUsers(params).catch(() => ({ data: [] })),
+                api.getPunchRecords(params).catch(() => ({ data: { results: [], data: [] } })),
+                api.getPendingApprovals(params).catch(() => ({ data: [] }))
             ]);
 
             const usersData = usersRes?.data || {};
@@ -97,21 +112,42 @@ const AdminDashboard = () => {
             });
 
             setChartData(Object.values(trendMap));
-            setStats({ totalEmployees, activeEmployees: activeSet.size, todayPunches, pendingApprovals: approvals.length, totalDistance: totalDistance.toFixed(2), collection, disbursement });
+            setStats({ 
+                totalEmployees, 
+                activeEmployees: activeSet.size, 
+                todayPunches, 
+                pendingApprovals: approvals.length, 
+                totalDistance: totalDistance.toFixed(2), 
+                collection, 
+                disbursement 
+            });
         } catch (err) {
             console.error("Dashboard Error:", err);
+        } finally {
+            setLoading(false);
+            setInitialLoad(false);
+            isFetching.current = false;
         }
-    }, [filters]);
+    };
 
-    useEffect(() => { loadDashboard(); }, [loadDashboard]);
+    useEffect(() => {
+        loadDashboard();
+    }, [filters.dateFrom, filters.dateTo]);
 
     const netCash = useMemo(() => (stats.collection || 0) - (stats.disbursement || 0), [stats]);
 
-    const handleFilterApply = (values) => setFilters(prev => ({ ...prev, ...values }));
+    const handleFilterApply = (values) => {
+        setFilters(prev => ({ ...prev, ...values }));
+    };
     const handleFilterClear = () => setFilters({ dateFrom: '', dateTo: '', state: '', branch: '', area: '', employee: '' });
 
-    if (loading) {
-        return <Box sx={{ p: 3 }}><Typography variant="h5" fontWeight="bold" mb={3}>Admin Dashboard</Typography><PageSkeleton /></Box>;
+    if (initialLoad && loading) {
+        return (
+            <Box sx={{ p: 3 }}>
+                <Typography variant="h5" fontWeight="bold" mb={3}>Admin Dashboard</Typography>
+                <StatsSkeleton count={8} />
+            </Box>
+        );
     }
 
     return (
