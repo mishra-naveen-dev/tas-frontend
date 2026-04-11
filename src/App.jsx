@@ -229,7 +229,7 @@ const AppRoutes = () => {
                 <Route
                     path="/admin/punch-corrections"
                     element={
-                        <ProtectedRoute roles={['ADMIN', 'SUPER_ADMIN']}>
+                        <ProtectedRoute requiredRoles={['ADMIN', 'SUPER_ADMIN']}>
                             <AppLayout>
                                 <AdminPunchCorrections />
                             </AppLayout>
