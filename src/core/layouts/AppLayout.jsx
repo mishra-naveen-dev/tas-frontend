@@ -15,6 +15,11 @@ import {
     MenuItem,
     Avatar,
     Divider,
+    TextField,
+    InputAdornment,
+    Paper,
+    Popper,
+    ClickAwayListener,
 } from '@mui/material';
 
 import {
@@ -30,6 +35,9 @@ import {
     ArrowBack as ArrowBackIcon,
     Phonelink as PhonelinkIcon,
     Lock as LockIcon,
+    Search as SearchIcon,
+    Clear as ClearIcon,
+    Map as MapIcon,
 } from '@mui/icons-material';
 
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -44,6 +52,7 @@ const ADMIN_MENU = [
     { text: 'Pending Approvals', icon: AssignmentIcon, path: '/admin/pending-approvals' },
     { text: 'Punch Details', icon: AssignmentIcon, path: '/admin/punch-details' },
     { text: 'Employee Tracking', icon: PeopleIcon, path: '/admin/employee-tracking' },
+    { text: 'Route Map', icon: MapIcon, path: '/admin/route-map' },
     { text: 'Punch Corrections', icon: EditIcon, path: '/admin/punch-corrections' },
     { text: 'CRM Visits', icon: LocationIcon, path: '/admin/crm-visits' },
     { text: 'Profile Approvals', icon: AssignmentIcon, path: '/admin/profile-approval' },
@@ -57,6 +66,7 @@ const SUPER_ADMIN_MENU = [
     { text: 'Pending Approvals', icon: AssignmentIcon, path: '/admin/pending-approvals' },
     { text: 'Punch Details', icon: AssignmentIcon, path: '/admin/punch-details' },
     { text: 'Employee Tracking', icon: PeopleIcon, path: '/admin/employee-tracking' },
+    { text: 'Route Map', icon: MapIcon, path: '/admin/route-map' },
     { text: 'Punch Corrections', icon: EditIcon, path: '/admin/punch-corrections' },
     { text: 'CRM Visits', icon: LocationIcon, path: '/admin/crm-visits' },
     { text: 'Profile Approvals', icon: AssignmentIcon, path: '/admin/profile-approval' },
@@ -82,9 +92,29 @@ const AppLayout = ({ children }) => {
 
     const [mobileOpen, setMobileOpen] = useState(false);
     const [anchorEl, setAnchorEl] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchOpen, setSearchOpen] = useState(false);
 
     // ================= SAFETY =================
     if (!user) return null;
+
+    // ================= MENU =================
+    const getMenuItems = () => {
+        if (userRole === 'SUPER_ADMIN') return SUPER_ADMIN_MENU;
+        if (userRole === 'ADMIN') return ADMIN_MENU;
+        return EMPLOYEE_MENU;
+    };
+
+    const menuItems = getMenuItems();
+
+    // ================= SEARCH =================
+    const getSearchResults = () => {
+        if (!searchQuery.trim()) return [];
+        const query = searchQuery.toLowerCase();
+        return menuItems.filter(item =>
+            item.text.toLowerCase().includes(query)
+        );
+    };
 
     // ================= HANDLERS =================
     const handleDrawerToggle = () => setMobileOpen(prev => !prev);
@@ -101,6 +131,8 @@ const AppLayout = ({ children }) => {
             navigate(path);
         }
         setMobileOpen(false);
+        setSearchQuery('');
+        setSearchOpen(false);
     };
 
     const handleBack = () => {
@@ -120,14 +152,19 @@ const AppLayout = ({ children }) => {
         '/admin/dashboard'
     ].includes(location.pathname);
 
-    // ================= MENU =================
-    const getMenuItems = () => {
-        if (userRole === 'SUPER_ADMIN') return SUPER_ADMIN_MENU;
-        if (userRole === 'ADMIN') return ADMIN_MENU;
-        return EMPLOYEE_MENU;
+    const handleSearchChange = (e) => {
+        setSearchQuery(e.target.value);
+        setSearchOpen(true);
     };
 
-    const menuItems = getMenuItems();
+    const handleSearchClear = () => {
+        setSearchQuery('');
+        setSearchOpen(false);
+    };
+
+    const handleResultClick = (path) => {
+        navigateTo(path);
+    };
 
     // ================= SIDEBAR =================
     const drawerContent = (
@@ -143,8 +180,90 @@ const AppLayout = ({ children }) => {
                 </Typography>
             </Box>
 
+            {/* SEARCH BAR */}
+            {['ADMIN', 'SUPER_ADMIN'].includes(userRole) && (
+                <Box sx={{ px: 2, py: 2, borderBottom: '1px solid #eee' }}>
+                    <TextField
+                        fullWidth
+                        size="small"
+                        placeholder="Search menu..."
+                        value={searchQuery}
+                        onChange={handleSearchChange}
+                        onFocus={() => setSearchOpen(true)}
+                        InputProps={{
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <SearchIcon sx={{ color: 'action.active', fontSize: 20 }} />
+                                </InputAdornment>
+                            ),
+                            endAdornment: searchQuery && (
+                                <InputAdornment position="end">
+                                    <IconButton size="small" onClick={handleSearchClear}>
+                                        <ClearIcon sx={{ fontSize: 16 }} />
+                                    </IconButton>
+                                </InputAdornment>
+                            ),
+                        }}
+                    />
+
+                    {/* SEARCH RESULTS POPUP */}
+                    {searchOpen && searchQuery && (
+                        <Paper
+                            sx={{
+                                position: 'absolute',
+                                left: 0,
+                                right: 0,
+                                mx: 2,
+                                mt: 0.5,
+                                maxHeight: 300,
+                                overflow: 'auto',
+                                zIndex: 1000,
+                            }}
+                            elevation={4}
+                        >
+                            <ClickAwayListener onClickAway={() => setSearchOpen(false)}>
+                                <List dense>
+                                    {getSearchResults().length > 0 ? (
+                                        getSearchResults().map((item) => (
+                                            <ListItem key={item.text} disablePadding>
+                                                <ListItemButton
+                                                    onClick={() => handleResultClick(item.path)}
+                                                    sx={{
+                                                        py: 1,
+                                                        '&:hover': { backgroundColor: '#f5f5f5' },
+                                                    }}
+                                                >
+                                                    <ListItemIcon sx={{ minWidth: 36 }}>
+                                                        <item.icon fontSize="small" />
+                                                    </ListItemIcon>
+                                                    <ListItemText
+                                                        primary={item.text}
+                                                        primaryTypographyProps={{ fontSize: 14 }}
+                                                    />
+                                                </ListItemButton>
+                                            </ListItem>
+                                        ))
+                                    ) : (
+                                        <ListItem>
+                                            <ListItemText
+                                                primary="No results found"
+                                                primaryTypographyProps={{
+                                                    fontSize: 13,
+                                                    color: 'text.secondary',
+                                                    sx: { textAlign: 'center', py: 2 },
+                                                }}
+                                            />
+                                        </ListItem>
+                                    )}
+                                </List>
+                            </ClickAwayListener>
+                        </Paper>
+                    )}
+                </Box>
+            )}
+
             {/* MENU */}
-            <List sx={{ px: 1, py: 2 }}>
+            <List sx={{ px: 1, py: 2, flex: 1 }}>
                 {menuItems.map((item) => {
                     const isActive = location.pathname === item.path;
 
