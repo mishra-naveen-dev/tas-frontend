@@ -437,6 +437,60 @@ class APIService {
     updateCorrectionSettings(data) {
         return this.patch('/attendance/correction-settings/', data);
     }
+
+    // Approval Hierarchy APIs
+    getApprovalHierarchies() {
+        return this.get('/organization/approval-hierarchies/');
+    }
+
+    getApprovalHierarchiesByType(requestType) {
+        return this.get('/organization/approval-hierarchies/by_type/', { type: requestType });
+    }
+
+    createApprovalHierarchy(data) {
+        return this.post('/organization/approval-hierarchies/', data);
+    }
+
+    updateApprovalHierarchy(id, data) {
+        return this.patch(`/organization/approval-hierarchies/${id}/`, data);
+    }
+
+    deleteApprovalHierarchy(id) {
+        return this.delete(`/organization/approval-hierarchies/${id}/`);
+    }
+
+    getApprovalRoutes(params = {}) {
+        return this.get('/organization/approval-routes/', params);
+    }
+
+    getPendingApprovalRoutes() {
+        return this.get('/organization/approval-routes/pending/');
+    }
+
+    processApprovalRoute(routeId, action, comments = '') {
+        return this.post(`/organization/approval-routes/${routeId}/process/`, { action, comments });
+    }
+
+    // Notifications APIs
+    getNotifications(params = {}) {
+        return this.get('/organization/notifications/', params);
+    }
+
+    getUnreadNotificationCount() {
+        return this.get('/organization/notifications/unread_count/');
+    }
+
+    markNotificationRead(id) {
+        return this.post(`/organization/notifications/${id}/mark_read/`);
+    }
+
+    markAllNotificationsRead() {
+        return this.post('/organization/notifications/mark_all_read/');
+    }
+
+    clearReadNotifications() {
+        return this.delete('/organization/notifications/clear_all/');
+    }
 }
 
 export default APIService.getInstance();
