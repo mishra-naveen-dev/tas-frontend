@@ -10,6 +10,7 @@ import MapIcon from '@mui/icons-material/Map';
 
 import api from 'core/services/api';
 import EmployeeRouteModal from 'modules/employee/components/EmployeeRouteModal';
+import CascadingFilter from 'shared/components/CascadingFilter';
 
 const PunchDetails = () => {
 
@@ -23,6 +24,13 @@ const PunchDetails = () => {
         type: 'ALL'
     });
 
+    const [locationFilter, setLocationFilter] = useState({
+        state: '',
+        branch: '',
+        area: '',
+        employee: '',
+    });
+
     const [routeModal, setRouteModal] = useState({
         open: false,
         employee: null
@@ -32,7 +40,13 @@ const PunchDetails = () => {
     const fetchPunches = async () => {
         setLoading(true);
         try {
-            const res = await api.getPunchRecords();
+            const params = { ...filters };
+            if (locationFilter.state) params.state = locationFilter.state;
+            if (locationFilter.branch) params.branch = locationFilter.branch;
+            if (locationFilter.area) params.area = locationFilter.area;
+            if (locationFilter.employee) params.employee_id = locationFilter.employee;
+
+            const res = await api.getPunchRecords(params);
             setData(res?.data?.results || res?.data || []);
         } catch (err) {
             console.error("Error fetching punches:", err);
@@ -43,7 +57,7 @@ const PunchDetails = () => {
 
     useEffect(() => {
         fetchPunches();
-    }, []);
+    }, [locationFilter]);
 
     // ================= HELPERS =================
     const getEmployee = (p) => ({
@@ -140,8 +154,17 @@ const PunchDetails = () => {
                 Employee Punch Details
             </Typography>
 
+            {/* ================= LOCATION FILTER ================= */}
+            <CascadingFilter
+                onApply={(filters) => {
+                    setLocationFilter(filters);
+                }}
+                showUserFilter={true}
+                compact={true}
+            />
+
             {/* ================= FILTER ================= */}
-            <Stack direction="row" spacing={2} mb={3} flexWrap="wrap">
+            <Stack direction="row" spacing={2} mb={3} mt={2} flexWrap="wrap">
 
                 <TextField
                     type="date"
@@ -162,24 +185,6 @@ const PunchDetails = () => {
                         setFilters(prev => ({ ...prev, to: e.target.value }))
                     }
                 />
-
-                <TextField
-                    select
-                    size="small"
-                    label="Employee"
-                    value={filters.employee}
-                    onChange={(e) =>
-                        setFilters(prev => ({ ...prev, employee: e.target.value }))
-                    }
-                    sx={{ minWidth: 180 }}
-                >
-                    <MenuItem value="ALL">All Employees</MenuItem>
-                    {employeeOptions.map(emp => (
-                        <MenuItem key={emp.id} value={emp.id}>
-                            {emp.name}
-                        </MenuItem>
-                    ))}
-                </TextField>
 
                 <TextField
                     select
