@@ -5,10 +5,6 @@ import {
     Card,
     CardContent,
     Typography,
-    Button,
-    Stack,
-    TextField,
-    CircularProgress
 } from '@mui/material';
 
 import {
@@ -18,13 +14,11 @@ import {
     TrendingUp,
     PendingActions,
     CurrencyRupee,
-    Map as MapIcon
 } from '@mui/icons-material';
 
-import { useNavigate } from 'react-router-dom';
 import api from 'core/services/api';
-import CascadingFilter from 'shared/components/CascadingFilter';
-import { StatsSkeleton, PageSkeleton } from 'shared/components/SkeletonLoader';
+import AdvancedFilter from 'shared/components/AdvancedFilter';
+import { PageSkeleton } from 'shared/components/SkeletonLoader';
 
 import {
     LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -32,19 +26,18 @@ import {
     ResponsiveContainer, Cell
 } from 'recharts';
 
-// ================= KPI CARD =================
 const StatCard = ({ title, value, icon, color }) => (
     <Card sx={{ borderRadius: 3 }}>
         <CardContent>
-            <Stack direction="row" justifyContent="space-between">
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box>
-                    <Typography variant="body2">{title}</Typography>
-                    <Typography variant="h5" fontWeight="bold" color={color}>
+                    <Typography variant="body2" color="text.secondary">{title}</Typography>
+                    <Typography variant="h5" fontWeight="bold" color={color || 'primary'}>
                         {value}
                     </Typography>
                 </Box>
                 {icon}
-            </Stack>
+            </Box>
         </CardContent>
     </Card>
 );
@@ -52,38 +45,28 @@ const StatCard = ({ title, value, icon, color }) => (
 const COLORS = ['#1976d2', '#2e7d32', '#d32f2f'];
 
 const AdminDashboard = () => {
-
-    const navigate = useNavigate();
-
     const [stats, setStats] = useState({});
     const [chartData, setChartData] = useState([]);
     const [loading, setLoading] = useState(true);
-
-    const [dateRange, setDateRange] = useState({
-        from: '',
-        to: ''
-    });
-
-    const [locationFilter, setLocationFilter] = useState({
+    const [filters, setFilters] = useState({
+        dateFrom: '',
+        dateTo: '',
         state: '',
         branch: '',
         area: '',
         employee: '',
     });
 
-    const handleFilterApply = (filters) => {
-        setLocationFilter(filters);
-    };
-
-    // ================= LOAD =================
     const loadDashboard = useCallback(async () => {
         setLoading(true);
         try {
-            const params = { ...dateRange };
-            if (locationFilter.state) params.state = locationFilter.state;
-            if (locationFilter.branch) params.branch = locationFilter.branch;
-            if (locationFilter.area) params.area = locationFilter.area;
-            if (locationFilter.employee) params.employee = locationFilter.employee;
+            const params = {};
+            if (filters.dateFrom) params.from = filters.dateFrom;
+            if (filters.dateTo) params.to = filters.dateTo;
+            if (filters.state) params.state = filters.state;
+            if (filters.branch) params.branch = filters.branch;
+            if (filters.area) params.area = filters.area;
+            if (filters.employee) params.employee = filters.employee;
 
             const [usersRes, punchesRes, approvalsRes] = await Promise.all([
                 api.getUsers(params),
@@ -96,13 +79,9 @@ const AdminDashboard = () => {
             const punches = punchesRes?.data?.results || punchesRes?.data || [];
             const approvals = approvalsRes?.data?.results || approvalsRes?.data || [];
 
-            // ================= ENTERPRISE MAP =================
             const map = {};
-
-            // 🔥 USERS FIRST
             users.forEach(u => {
                 const key = String(u.employee_id || u.id);
-
                 map[key] = {
                     id: key,
                     name: `${u.first_name || ''} ${u.last_name || ''}`,
@@ -116,25 +95,19 @@ const AdminDashboard = () => {
             let totalDistance = 0;
             let collection = 0;
             let disbursement = 0;
-
             const activeSet = new Set();
 
-            // 🔥 PROCESS PUNCHES (WITH FALLBACK)
             punches.forEach(p => {
-
                 const empId = String(
                     p.employee_details?.employee_id ||
                     p.employee_id ||
                     p.employee_details?.id ||
-                    p.employee ||
-                    ''
+                    p.employee || ''
                 );
 
                 if (!empId) return;
-
                 activeSet.add(empId);
 
-                // 🔥 fallback creation
                 if (!map[empId]) {
                     map[empId] = {
                         id: empId,
@@ -147,13 +120,11 @@ const AdminDashboard = () => {
                 }
 
                 const emp = map[empId];
-
                 const distance = Number(p.distance_from_last) || 0;
                 const amount = Number(p.amount) || 0;
 
                 emp.distance += distance;
                 emp.punches += 1;
-
                 totalDistance += distance;
 
                 if (p.visit_type === 'COLLECTION') {
@@ -172,39 +143,29 @@ const AdminDashboard = () => {
                 Object.keys(map).length
             );
 
-            const activeEmployees = activeSet.size;
-
-            // ================= TODAY PUNCH =================
             const today = new Date().toDateString();
-
             const todayPunches = punches.filter(p =>
                 new Date(p.punched_at).toDateString() === today
             ).length;
 
-            // ================= TREND =================
             const trendMap = {};
-
             punches.forEach(p => {
                 const day = new Date(p.punched_at).toLocaleDateString();
-
                 if (!trendMap[day]) {
                     trendMap[day] = { day, collection: 0, disbursement: 0 };
                 }
-
                 if (p.visit_type === 'COLLECTION') {
                     trendMap[day].collection += Number(p.amount) || 0;
                 }
-
                 if (p.visit_type === 'DISBURSEMENT') {
                     trendMap[day].disbursement += Number(p.amount) || 0;
                 }
             });
 
             setChartData(Object.values(trendMap));
-
             setStats({
                 totalEmployees,
-                activeEmployees,
+                activeEmployees: activeSet.size,
                 todayPunches,
                 pendingApprovals: approvals.length,
                 totalDistance: totalDistance.toFixed(2),
@@ -214,10 +175,8 @@ const AdminDashboard = () => {
 
         } catch (err) {
             console.error("Dashboard Error:", err);
-        } finally {
-            setLoading(false);
         }
-    }, [dateRange, locationFilter]);
+    }, [filters]);
 
     useEffect(() => {
         loadDashboard();
@@ -226,6 +185,21 @@ const AdminDashboard = () => {
     const netCash = useMemo(() => {
         return (stats.collection || 0) - (stats.disbursement || 0);
     }, [stats]);
+
+    const handleFilterApply = (values) => {
+        setFilters(prev => ({ ...prev, ...values }));
+    };
+
+    const handleFilterClear = () => {
+        setFilters({
+            dateFrom: '',
+            dateTo: '',
+            state: '',
+            branch: '',
+            area: '',
+            employee: '',
+        });
+    };
 
     if (loading) {
         return (
@@ -240,84 +214,62 @@ const AdminDashboard = () => {
 
     return (
         <Box sx={{ p: 3 }}>
-
             <Typography variant="h5" fontWeight="bold" mb={3}>
                 Admin Dashboard
             </Typography>
 
-            {/* ================= FILTER ================= */}
-            <Stack direction="row" spacing={2} mb={3}>
-                <TextField
-                    type="date"
-                    size="small"
-                    onChange={(e) =>
-                        setDateRange(prev => ({ ...prev, from: e.target.value }))
-                    }
-                />
-
-                <TextField
-                    type="date"
-                    size="small"
-                    onChange={(e) =>
-                        setDateRange(prev => ({ ...prev, to: e.target.value }))
-                    }
-                />
-
-                <Button variant="contained" onClick={loadDashboard}>
-                    Apply
-                </Button>
-            </Stack>
-
-            {/* ================= LOCATION FILTER ================= */}
-            <CascadingFilter
+            {/* ================= ADVANCED FILTER ================= */}
+            <AdvancedFilter
                 onApply={handleFilterApply}
-                showUserFilter={true}
-                compact={true}
+                onClear={handleFilterClear}
+                showDateRange={true}
+                extraFilters={(values, onChange) => (
+                    <>
+                        <Grid item xs={12} sm={6} md={3}>
+                            <Box sx={{ p: 1, border: '1px dashed #ccc', borderRadius: 1, textAlign: 'center' }}>
+                                <Typography variant="caption" color="text.secondary">
+                                    Location filters available in Organization module
+                                </Typography>
+                            </Box>
+                        </Grid>
+                    </>
+                )}
             />
 
-            {/* ================= KPI ================= */}
+            {/* ================= KPI CARDS ================= */}
             <Grid container spacing={2}>
-                <Grid item xs={12} md={3}>
-                    <StatCard title="Employees" value={stats.totalEmployees} icon={<People />} />
+                <Grid item xs={12} sm={6} md={3}>
+                    <StatCard title="Total Employees" value={stats.totalEmployees} icon={<People fontSize="large" color="primary" />} />
                 </Grid>
-
-                <Grid item xs={12} md={3}>
-                    <StatCard title="Active" value={stats.activeEmployees} icon={<TrendingUp />} color="green" />
+                <Grid item xs={12} sm={6} md={3}>
+                    <StatCard title="Active Today" value={stats.activeEmployees} icon={<TrendingUp fontSize="large" color="success" />} />
                 </Grid>
-
-                <Grid item xs={12} md={3}>
-                    <StatCard title="Punches Today" value={stats.todayPunches} icon={<Assignment />} />
+                <Grid item xs={12} sm={6} md={3}>
+                    <StatCard title="Punches Today" value={stats.todayPunches} icon={<Assignment fontSize="large" />} />
                 </Grid>
-
-                <Grid item xs={12} md={3}>
-                    <StatCard title="Distance (KM)" value={stats.totalDistance} icon={<LocationOn />} />
+                <Grid item xs={12} sm={6} md={3}>
+                    <StatCard title="Distance (KM)" value={stats.totalDistance} icon={<LocationOn fontSize="large" />} />
                 </Grid>
-
-                <Grid item xs={12} md={3}>
-                    <StatCard title="Pending" value={stats.pendingApprovals} icon={<PendingActions />} color="orange" />
+                <Grid item xs={12} sm={6} md={3}>
+                    <StatCard title="Pending" value={stats.pendingApprovals} icon={<PendingActions fontSize="large" />} color="warning" />
                 </Grid>
-
-                <Grid item xs={12} md={3}>
-                    <StatCard title="Collection" value={`₹ ${stats.collection}`} icon={<CurrencyRupee />} color="green" />
+                <Grid item xs={12} sm={6} md={3}>
+                    <StatCard title="Collection" value={`₹ ${Number(stats.collection || 0).toLocaleString()}`} icon={<CurrencyRupee fontSize="large" />} color="success" />
                 </Grid>
-
-                <Grid item xs={12} md={3}>
-                    <StatCard title="Disbursement" value={`₹ ${stats.disbursement}`} icon={<CurrencyRupee />} color="red" />
+                <Grid item xs={12} sm={6} md={3}>
+                    <StatCard title="Disbursement" value={`₹ ${Number(stats.disbursement || 0).toLocaleString()}`} icon={<CurrencyRupee fontSize="large" />} color="error" />
                 </Grid>
-
-                <Grid item xs={12} md={3}>
-                    <StatCard title="Net Cash" value={`₹ ${netCash}`} icon={<TrendingUp />} color={netCash >= 0 ? "green" : "red"} />
+                <Grid item xs={12} sm={6} md={3}>
+                    <StatCard title="Net Cash" value={`₹ ${Number(netCash).toLocaleString()}`} icon={<CurrencyRupee fontSize="large" />} color={netCash >= 0 ? 'success' : 'error'} />
                 </Grid>
             </Grid>
 
-            {/* ================= CHART ================= */}
+            {/* ================= CHARTS ================= */}
             <Grid container spacing={3} mt={2}>
-
                 <Grid item xs={12} md={6}>
                     <Card>
                         <CardContent>
-                            <Typography variant="h6">Cash Flow Trend</Typography>
-
+                            <Typography variant="h6" gutterBottom>Cash Flow Trend</Typography>
                             <ResponsiveContainer width="100%" height={250}>
                                 <LineChart data={chartData}>
                                     <CartesianGrid strokeDasharray="3 3" />
@@ -335,14 +287,13 @@ const AdminDashboard = () => {
                 <Grid item xs={12} md={6}>
                     <Card>
                         <CardContent>
-                            <Typography variant="h6">Approval Status</Typography>
-
+                            <Typography variant="h6" gutterBottom>Approval Status</Typography>
                             <ResponsiveContainer width="100%" height={250}>
                                 <PieChart>
                                     <Pie
                                         data={[
                                             { name: 'Approved', value: 60 },
-                                            { name: 'Pending', value: 30 },
+                                            { name: 'Pending', value: stats.pendingApprovals || 10 },
                                             { name: 'Rejected', value: 10 }
                                         ]}
                                         dataKey="value"
@@ -359,12 +310,9 @@ const AdminDashboard = () => {
                         </CardContent>
                     </Card>
                 </Grid>
-
             </Grid>
-
         </Box>
     );
-
 };
 
 export default AdminDashboard;
