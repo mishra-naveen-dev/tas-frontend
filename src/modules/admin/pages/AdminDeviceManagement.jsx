@@ -28,6 +28,7 @@ import {
     Badge,
     Tabs,
     Tab,
+    Autocomplete,
 } from '@mui/material';
 import {
     Search as SearchIcon,
@@ -42,6 +43,8 @@ import {
     Pending as PendingIcon,
     CheckCircle as ApprovedIcon,
     Cancel as RejectedIcon,
+    DeleteSweep as ResetIcon,
+    PersonOff as ResetUserIcon,
 } from '@mui/icons-material';
 import api from 'core/services/api';
 
@@ -96,6 +99,9 @@ const AdminDeviceManagement = () => {
     const [confirmDialog, setConfirmDialog] = useState({ open: false, device: null, action: null });
     const [actionLoading, setActionLoading] = useState(false);
     const [activeTab, setActiveTab] = useState(0);
+    const [users, setUsers] = useState([]);
+    const [resetDialog, setResetDialog] = useState({ open: false, user: null });
+    const [resetSuccess, setResetSuccess] = useState(null);
 
     const fetchDevices = useCallback(async () => {
         setLoading(true);
@@ -165,6 +171,38 @@ const AdminDeviceManagement = () => {
         }
     };
 
+    const fetchUsers = async () => {
+        try {
+            const res = await api.get('/organization/users/', { params: { page_size: 100 } });
+            setUsers(res.data.results || res.data);
+        } catch (err) {
+            console.error('Failed to fetch users:', err);
+        }
+    };
+
+    const handleResetUserDevices = async () => {
+        if (!resetDialog.user) return;
+        
+        setActionLoading(true);
+        setResetSuccess(null);
+        try {
+            const res = await api.post('/organization/devices/reset_user_devices/', {
+                user_id: resetDialog.user.id
+            });
+            setResetSuccess(res.data.message);
+            setTimeout(() => {
+                setResetDialog({ open: false, user: null });
+                setResetSuccess(null);
+                fetchDevices();
+            }, 2000);
+        } catch (err) {
+            console.error('Failed to reset user devices:', err);
+            alert(err.response?.data?.error || 'Failed to reset user devices');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     const filteredDevices = devices.filter((device) => {
         const searchLower = search.toLowerCase();
         const matchesSearch =
@@ -211,14 +249,28 @@ const AdminDeviceManagement = () => {
                 <Typography variant="h6" fontWeight="bold">
                     Device Management (Super Admin Only)
                 </Typography>
-                <Button
-                    startIcon={<RefreshIcon />}
-                    onClick={fetchDevices}
-                    variant="outlined"
-                    size="small"
-                >
-                    Refresh
-                </Button>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                        startIcon={<ResetUserIcon />}
+                        onClick={() => {
+                            fetchUsers();
+                            setResetDialog({ open: true, user: null });
+                        }}
+                        variant="outlined"
+                        size="small"
+                        color="warning"
+                    >
+                        Reset User Devices
+                    </Button>
+                    <Button
+                        startIcon={<RefreshIcon />}
+                        onClick={fetchDevices}
+                        variant="outlined"
+                        size="small"
+                    >
+                        Refresh
+                    </Button>
+                </Box>
             </Box>
 
             {error && (
@@ -566,6 +618,64 @@ const AdminDeviceManagement = () => {
                         disabled={actionLoading}
                     >
                         {actionLoading ? <CircularProgress size={24} /> : 'Confirm'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog
+                open={resetDialog.open}
+                onClose={() => !actionLoading && setResetDialog({ open: false, user: null })}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <ResetIcon color="warning" />
+                    Reset User Devices
+                </DialogTitle>
+                <DialogContent>
+                    {resetSuccess ? (
+                        <Alert severity="success" sx={{ mt: 1 }}>
+                            {resetSuccess}
+                        </Alert>
+                    ) : (
+                        <>
+                            <Typography variant="body2" sx={{ mb: 2 }}>
+                                Select a user to reset all their devices. After reset, the user will be able to login from a new device (first device is auto-approved).
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+                                Use this when an employee loses their device and needs to login from a new device.
+                            </Typography>
+                            <Autocomplete
+                                options={users}
+                                getOptionLabel={(option) => `${option.username} (${option.employee_id || 'No ID'})`}
+                                value={resetDialog.user}
+                                onChange={(e, newValue) => setResetDialog({ ...resetDialog, user: newValue })}
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        label="Select User"
+                                        placeholder="Search by username or employee ID"
+                                        size="small"
+                                    />
+                                )}
+                            />
+                        </>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button
+                        onClick={() => setResetDialog({ open: false, user: null })}
+                        disabled={actionLoading}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleResetUserDevices}
+                        color="warning"
+                        variant="contained"
+                        disabled={actionLoading || !resetDialog.user || !!resetSuccess}
+                    >
+                        {actionLoading ? <CircularProgress size={24} /> : 'Reset Devices'}
                     </Button>
                 </DialogActions>
             </Dialog>
