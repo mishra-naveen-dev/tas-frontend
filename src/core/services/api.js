@@ -395,15 +395,15 @@ class APIService {
 
     // Smart Distance System - Route APIs
     getRouteHistory(params = {}) {
-        return this.get('/attendance/routes/history/', params);
+        return this.get('/tracking/routes/history/', params);
     }
 
     getRouteDetail(sessionId) {
-        return this.get(`/attendance/routes/detail/${sessionId}/`);
+        return this.get(`/tracking/routes/detail/${sessionId}/`);
     }
 
     getDailyRoute(employeeId, params = {}) {
-        return this.get(`/attendance/routes/daily/${employeeId}/`, params);
+        return this.get(`/tracking/routes/daily/${employeeId}/`, params);
     }
 
     // Backdate Correction System
