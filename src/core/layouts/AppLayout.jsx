@@ -29,6 +29,7 @@ import {
     Edit as EditIcon,
     ArrowBack as ArrowBackIcon,
     Phonelink as PhonelinkIcon,
+    Lock as LockIcon,
 } from '@mui/icons-material';
 
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -49,6 +50,19 @@ const ADMIN_MENU = [
     { text: 'Device Management', icon: PhonelinkIcon, path: '/admin/device-management' },
     { text: 'Create User', icon: PeopleIcon, path: '/admin/create-user' },
 
+];
+
+const SUPER_ADMIN_MENU = [
+    { text: 'Dashboard', icon: DashboardIcon, path: '/admin/dashboard' },
+    { text: 'Pending Approvals', icon: AssignmentIcon, path: '/admin/pending-approvals' },
+    { text: 'Punch Details', icon: AssignmentIcon, path: '/admin/punch-details' },
+    { text: 'Employee Tracking', icon: PeopleIcon, path: '/admin/employee-tracking' },
+    { text: 'Punch Corrections', icon: EditIcon, path: '/admin/punch-corrections' },
+    { text: 'CRM Visits', icon: LocationIcon, path: '/admin/crm-visits' },
+    { text: 'Profile Approvals', icon: AssignmentIcon, path: '/admin/profile-approval' },
+    { text: 'Device Management', icon: PhonelinkIcon, path: '/admin/device-management' },
+    { text: 'Password Management', icon: LockIcon, path: '/admin/password-management' },
+    { text: 'Create User', icon: PeopleIcon, path: '/admin/create-user' },
 ];
 
 const EMPLOYEE_MENU = [
@@ -107,10 +121,13 @@ const AppLayout = ({ children }) => {
     ].includes(location.pathname);
 
     // ================= MENU =================
-    const menuItems =
-        ['ADMIN', 'SUPER_ADMIN'].includes(userRole)
-            ? ADMIN_MENU
-            : EMPLOYEE_MENU;
+    const getMenuItems = () => {
+        if (userRole === 'SUPER_ADMIN') return SUPER_ADMIN_MENU;
+        if (userRole === 'ADMIN') return ADMIN_MENU;
+        return EMPLOYEE_MENU;
+    };
+
+    const menuItems = getMenuItems();
 
     // ================= SIDEBAR =================
     const drawerContent = (
