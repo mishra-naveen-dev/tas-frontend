@@ -94,7 +94,7 @@ const AdminDeviceManagement = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [search, setSearch] = useState('');
-    const [statusFilter, setStatusFilter] = useState('ALL');
+    const [statusFilter] = useState('ALL');
     const [platformFilter, setPlatformFilter] = useState('ALL');
     const [viewDialog, setViewDialog] = useState({ open: false, device: null });
     const [confirmDialog, setConfirmDialog] = useState({ open: false, device: null, action: null });

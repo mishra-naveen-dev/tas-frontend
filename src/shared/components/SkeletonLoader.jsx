@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Skeleton, Card, CardContent, Grid, Stack, Typography } from '@mui/material';
+import { Box, Skeleton, Card, CardContent, Grid, Stack } from '@mui/material';
 
 export const TableSkeleton = ({ rows = 5, columns = 4 }) => (
     <Box>

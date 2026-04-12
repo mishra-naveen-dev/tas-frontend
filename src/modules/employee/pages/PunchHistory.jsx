@@ -26,7 +26,6 @@ import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import CurrencyRupeeIcon from '@mui/icons-material/CurrencyRupee';
 
 import api from 'core/services/api';
-import { TableSkeleton } from 'shared/components/SkeletonLoader';
 
 const PunchHistory = () => {
 

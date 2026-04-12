@@ -25,12 +25,11 @@ import {
 import {
     Add as AddIcon,
     Edit as EditIcon,
-    History as HistoryIcon,
     Send as SendIcon,
     Place as PlaceIcon,
 } from '@mui/icons-material';
 import api from 'core/services/api';
-import { TableSkeleton, FormSkeleton } from 'shared/components/SkeletonLoader';
+import { TableSkeleton } from 'shared/components/SkeletonLoader';
 
 const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null }) => {
     const [form, setForm] = useState({
@@ -49,8 +48,8 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
 
     useEffect(() => {
         if (editPunch) {
-            setForm({
-                ...form,
+            setForm(f => ({
+                ...f,
                 correction_type: 'EDIT',
                 original_punch_id: editPunch.id,
                 correction_date: editPunch.punch_date,
@@ -58,7 +57,7 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                 punch_type: editPunch.punch_type,
                 from_address: `Lat: ${editPunch.latitude}, Lng: ${editPunch.longitude}`,
                 reason: '',
-            });
+            }));
         } else {
             setForm({
                 correction_type: 'ADD',

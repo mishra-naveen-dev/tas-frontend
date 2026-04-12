@@ -4,7 +4,6 @@ import {
     Typography,
     Button,
     Chip,
-    IconButton,
     Dialog,
     DialogTitle,
     DialogContent,
@@ -23,6 +22,7 @@ import {
     Tooltip,
     Tabs,
     Tab,
+    Skeleton,
 } from '@mui/material';
 import {
     Refresh as RefreshIcon,
@@ -35,8 +35,7 @@ import {
     Person as PersonIcon,
 } from '@mui/icons-material';
 import api from 'core/services/api';
-import { TableSkeleton, StatsSkeleton } from 'shared/components/SkeletonLoader';
-import { Skeleton } from '@mui/material';
+import { TableSkeleton } from 'shared/components/SkeletonLoader';
 
 const PasswordManagement = () => {
     const [passwordData, setPasswordData] = useState({ users: [], total_users: 0, password_expiry_days: 90 });

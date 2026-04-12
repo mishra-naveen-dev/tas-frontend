@@ -21,7 +21,6 @@ import {
 } from '@mui/icons-material';
 import api from 'core/services/api';
 import { FormSkeleton } from 'shared/components/SkeletonLoader';
-import { Skeleton } from '@mui/material';
 
 const CorrectionSettings = () => {
     const [settings, setSettings] = useState({

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Box, Grid, Card, CardContent, Typography } from '@mui/material';
 import { People, Assignment, LocationOn, TrendingUp, PendingActions, CurrencyRupee } from '@mui/icons-material';
 import api from 'core/services/api';
@@ -46,7 +46,7 @@ const AdminDashboard = () => {
 
     const isFetching = useRef(false);
 
-    const loadDashboard = async () => {
+    const loadDashboard = useCallback(async () => {
         if (isFetching.current) return;
         isFetching.current = true;
         
@@ -128,11 +128,11 @@ const AdminDashboard = () => {
             setInitialLoad(false);
             isFetching.current = false;
         }
-    };
+    }, [filters, initialLoad]);
 
     useEffect(() => {
         loadDashboard();
-    }, [filters.dateFrom, filters.dateTo]);
+    }, [loadDashboard]);
 
     const netCash = useMemo(() => (stats.collection || 0) - (stats.disbursement || 0), [stats]);
 
