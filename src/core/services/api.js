@@ -595,7 +595,7 @@ class ScalableAPI {
         return this.post('/organization/sessions/logout_current/');
     }
 
-    logout() {
+    logoutApi() {
         return this.post('/auth/logout/');
     }
 }
