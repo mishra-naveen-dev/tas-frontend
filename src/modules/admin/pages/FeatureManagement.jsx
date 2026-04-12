@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Box, Typography, Card, CardContent, Table, TableBody,
     TableCell, TableContainer, TableHead, TableRow, Switch, Chip,
@@ -46,98 +46,87 @@ const FeatureManagement = () => {
     const [activeTab, setActiveTab] = useState(0);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
-    const fetchRoles = useCallback(async () => {
-        try {
-            const res = await api.get('/organization/roles/');
-            const allRoles = res.data || [];
-            const adminRoles = allRoles.filter(r => r.name !== 'SUPER_ADMIN' && r.name !== 'EMPLOYEE' && r.name !== 'GUEST');
-            setRoles(adminRoles);
-            if (adminRoles.length > 0 && !selectedRole) {
-                setSelectedRole(adminRoles[0].id);
-            }
-        } catch (err) {
-            console.error('Error fetching roles:', err);
-        }
-    }, [selectedRole]);
-
-    const fetchFeatures = useCallback(async () => {
-        try {
-            const res = await api.getFeatures();
-            const allFeatures = res.data || [];
-            setFeatures(allFeatures);
-        } catch (err) {
-            console.error('Error fetching features:', err);
-        }
-    }, []);
-
-    const fetchRoleFeatures = useCallback(async (roleId) => {
-        if (!roleId) return;
-        try {
-            const res = await api.getRoleFeaturesByRole(roleId);
-            const featuresData = res.data || [];
-            const featureMap = {};
-            featuresData.forEach(f => {
-                featureMap[f.id] = f.is_enabled;
-            });
-            setRoleFeatures(featureMap);
-        } catch (err) {
-            console.error('Error fetching role features:', err);
-        }
-    }, []);
-
-    const fetchRoleUsers = useCallback(async (roleId) => {
-        if (!roleId) return;
-        try {
-            const res = await api.getUserFeaturesByRole(roleId);
-            const usersData = res.data || [];
-            setRoleUsers(usersData);
-        } catch (err) {
-            console.error('Error fetching role users:', err);
-        }
-    }, []);
-
-    const fetchUserFeatures = useCallback(async (userId) => {
-        if (!userId) return;
-        try {
-            const res = await api.getUserFeaturesByUser(userId);
-            const featuresData = res.data || [];
-            const featureMap = {};
-            featuresData.forEach(f => {
-                featureMap[f.id] = {
-                    is_enabled: f.is_enabled,
-                    inherited: f.inherited,
-                    user_override: f.user_override
-                };
-            });
-            setUserFeatures(featureMap);
-        } catch (err) {
-            console.error('Error fetching user features:', err);
-        }
-    }, []);
-
     useEffect(() => {
         const loadData = async () => {
             setLoading(true);
-            await Promise.all([fetchRoles(), fetchFeatures()]);
-            setLoading(false);
+            try {
+                const [rolesRes, featuresRes] = await Promise.all([
+                    api.get('/organization/roles/'),
+                    api.getFeatures()
+                ]);
+                
+                const allRoles = rolesRes.data || [];
+                const adminRoles = allRoles.filter(r => r.name !== 'SUPER_ADMIN' && r.name !== 'EMPLOYEE' && r.name !== 'GUEST');
+                setRoles(adminRoles);
+                
+                const allFeatures = featuresRes.data || [];
+                setFeatures(allFeatures);
+                
+                if (adminRoles.length > 0) {
+                    const firstRoleId = adminRoles[0].id;
+                    setSelectedRole(firstRoleId);
+                }
+            } catch (err) {
+                console.error('Error loading data:', err);
+            } finally {
+                setLoading(false);
+            }
         };
         loadData();
-    }, [fetchRoles, fetchFeatures]);
+    }, []);
 
     useEffect(() => {
-        if (selectedRole) {
-            fetchRoleFeatures(selectedRole);
-            fetchRoleUsers(selectedRole);
-            setSelectedUser(null);
-            setUserFeatures({});
-        }
-    }, [selectedRole, fetchRoleFeatures, fetchRoleUsers]);
+        if (!selectedRole) return;
+        
+        const fetchRoleData = async () => {
+            try {
+                const [featuresRes, usersRes] = await Promise.all([
+                    api.getRoleFeaturesByRole(selectedRole),
+                    api.getUserFeaturesByRole(selectedRole)
+                ]);
+                
+                const featuresData = featuresRes.data || [];
+                const featureMap = {};
+                featuresData.forEach(f => {
+                    featureMap[f.id] = f.is_enabled;
+                });
+                setRoleFeatures(featureMap);
+                
+                const usersData = usersRes.data || [];
+                setRoleUsers(usersData);
+            } catch (err) {
+                console.error('Error fetching role data:', err);
+            }
+        };
+        
+        fetchRoleData();
+        setSelectedUser(null);
+        setUserFeatures({});
+    }, [selectedRole]);
 
     useEffect(() => {
-        if (selectedUser) {
-            fetchUserFeatures(selectedUser.user_id);
-        }
-    }, [selectedUser, fetchUserFeatures]);
+        if (!selectedUser) return;
+        
+        const fetchUserData = async () => {
+            try {
+                const res = await api.getUserFeaturesByUser(selectedUser.user_id);
+                const featuresData = res.data || [];
+                const featureMap = {};
+                featuresData.forEach(f => {
+                    featureMap[f.id] = {
+                        is_enabled: f.is_enabled,
+                        inherited: f.inherited,
+                        user_override: f.user_override
+                    };
+                });
+                setUserFeatures(featureMap);
+            } catch (err) {
+                console.error('Error fetching user features:', err);
+            }
+        };
+        
+        fetchUserData();
+    }, [selectedUser]);
 
     const handleRoleToggle = async (featureId, currentState) => {
         const newState = !currentState;
@@ -180,7 +169,6 @@ const FeatureManagement = () => {
                 severity: 'success'
             });
         } catch (err) {
-            fetchUserFeatures(selectedUser.user_id);
             setSnackbar({
                 open: true,
                 message: 'Failed to update feature',
