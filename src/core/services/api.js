@@ -5,6 +5,8 @@ const API_V1 = `${BASE_URL}/api/v1`;
 const AUTH_URL = `${API_V1}/auth`;
 
 const IS_DEV = process.env.NODE_ENV === 'development';
+const IS_DEBUG = process.env.REACT_APP_DEBUG === 'true';
+const CACHE_DURATION = parseInt(process.env.REACT_APP_CACHE_DURATION || '30000', 10);
 
 const cache = new Map();
 
@@ -22,21 +24,52 @@ const processQueue = (error, token = null) => {
     failedQueue = [];
 };
 
-const logError = (...args) => {
-    if (IS_DEV) console.error(...args);
-};
-
 const getDeviceId = () => {
-    // Use localStorage to persist device_id across logouts
     let deviceId = localStorage.getItem('device_id');
-    
     if (!deviceId) {
         deviceId = 'web_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
         localStorage.setItem('device_id', deviceId);
     }
-    
     return deviceId;
 };
+
+class CacheManager {
+    static set(key, data) {
+        cache.set(key, { data, timestamp: Date.now() });
+        if (cache.size > 100) {
+            const firstKey = cache.keys().next().value;
+            cache.delete(firstKey);
+        }
+    }
+
+    static get(key) {
+        const entry = cache.get(key);
+        if (!entry) return null;
+        
+        if (Date.now() - entry.timestamp > CACHE_DURATION) {
+            cache.delete(key);
+            return null;
+        }
+        
+        return entry.data;
+    }
+
+    static invalidate(key) {
+        if (key) {
+            cache.delete(key);
+        } else {
+            cache.clear();
+        }
+    }
+
+    static invalidatePrefix(prefix) {
+        for (const key of cache.keys()) {
+            if (key.startsWith(prefix)) {
+                cache.delete(key);
+            }
+        }
+    }
+}
 
 class APIService {
 
@@ -49,16 +82,13 @@ class APIService {
 
         this.api.interceptors.request.use((config) => {
             const token = getAccessToken();
-
             if (token && !config.url.includes('/auth/token')) {
                 config.headers.Authorization = `Bearer ${token}`;
             }
 
             config.headers['X-DEVICE-ID'] = getDeviceId();
             config.headers['X-PLATFORM'] = 'WEB';
-
-            const userAgent = navigator.userAgent || '';
-            config.headers['X-USER-AGENT'] = userAgent;
+            config.headers['X-USER-AGENT'] = navigator.userAgent || '';
 
             return config;
         });
@@ -66,11 +96,9 @@ class APIService {
         this.api.interceptors.response.use(
             res => res,
             async (error) => {
-
                 const originalRequest = error.config;
 
                 if (!error.response) {
-                    logError('Network error');
                     return Promise.reject(error);
                 }
 
@@ -79,13 +107,8 @@ class APIService {
                     return Promise.reject(error);
                 }
 
-                if (
-                    error.response.status === 401 &&
-                    !originalRequest._retry &&
-                    !originalRequest.url.includes('/auth/token/')
-                ) {
+                if (error.response.status === 401 && !originalRequest._retry && !originalRequest.url.includes('/auth/token/')) {
                     originalRequest._retry = true;
-
                     const refresh = getRefreshToken();
 
                     if (!refresh) {
@@ -106,24 +129,18 @@ class APIService {
 
                     try {
                         const res = await axios.post(`${AUTH_URL}/token/refresh/`, { refresh });
-
                         const newAccess = res.data.access;
 
                         sessionStorage.setItem('access_token', newAccess);
-
                         this.api.defaults.headers.Authorization = `Bearer ${newAccess}`;
-
                         processQueue(null, newAccess);
-
                         originalRequest.headers.Authorization = `Bearer ${newAccess}`;
 
                         return this.api(originalRequest);
-
                     } catch (err) {
                         processQueue(err, null);
                         this.logout();
                         return Promise.reject(err);
-
                     } finally {
                         isRefreshing = false;
                     }
@@ -133,17 +150,11 @@ class APIService {
                     const errorCode = error.response?.data?.code;
                     
                     if (errorCode === 'DEVICE_NOT_BINDED' || errorCode === 'DEVICE_ID_REQUIRED') {
-                        sessionStorage.removeItem('device_id');
-                        console.warn('Device invalidated. Please login again.');
+                        localStorage.removeItem('device_id');
                         this.logout();
-                    }
-                    
-                    if (errorCode === 'PLATFORM_NOT_ALLOWED') {
-                        console.warn('This action is only available on desktop/web platform.');
                     }
                 }
 
-                logError('API Error:', error.response?.data);
                 return Promise.reject(error);
             }
         );
@@ -157,26 +168,22 @@ class APIService {
     }
 
     async get(url, params = {}, useCache = false) {
-        try {
-            const key = `${url}_${JSON.stringify(params)}`;
+        const key = `${url}_${JSON.stringify(params)}`;
 
-            if (useCache && cache.has(key)) {
-                return { data: cache.get(key) };
+        if (useCache) {
+            const cached = CacheManager.get(key);
+            if (cached) {
+                return { data: cached };
             }
-
-            const res = await this.api.get(url, { params });
-
-            if (useCache) {
-                cache.set(key, res.data);
-                setTimeout(() => cache.delete(key), 30000);
-            }
-
-            return res;
-
-        } catch (err) {
-            logError('GET ERROR:', url);
-            throw err;
         }
+
+        const res = await this.api.get(url, { params });
+
+        if (useCache) {
+            CacheManager.set(key, res.data);
+        }
+
+        return res;
     }
 
     async post(url, data = {}) {
@@ -195,13 +202,14 @@ class APIService {
         return this.api.delete(url);
     }
 
+    invalidateCache(prefix = null) {
+        CacheManager.invalidatePrefix(prefix || '');
+    }
+
     async login(username, password) {
         const deviceId = getDeviceId();
         
-        const res = await axios.post(`${AUTH_URL}/token/`, { 
-            username, 
-            password 
-        }, {
+        const res = await axios.post(`${AUTH_URL}/token/`, { username, password }, {
             headers: {
                 'X-DEVICE-ID': deviceId,
                 'X-PLATFORM': 'WEB',
@@ -222,6 +230,8 @@ class APIService {
             sessionStorage.setItem('device_info', JSON.stringify(data.device));
         }
 
+        CacheManager.invalidate();
+
         return data;
     }
 
@@ -231,6 +241,7 @@ class APIService {
         sessionStorage.removeItem('user');
         sessionStorage.removeItem('device_id');
         sessionStorage.removeItem('device_info');
+        CacheManager.invalidate();
         window.location.replace('/#/login');
     }
 
@@ -240,27 +251,24 @@ class APIService {
 
     async getCurrentUser() {
         const token = getAccessToken();
-
         if (!token) {
             return Promise.reject('No token');
         }
-
-        try {
-            return await this.get('/organization/users/me/');
-        } catch (err) {
-            throw err;
-        }
+        return this.get('/organization/users/me/');
     }
 
     createUser(data) {
+        this.invalidateCache('/organization/users/');
         return this.post('/organization/users/', data);
     }
 
     updateUser(id, data) {
+        this.invalidateCache('/organization/users/');
         return this.patch(`/organization/users/${id}/`, data);
     }
 
     deleteUser(id) {
+        this.invalidateCache('/organization/users/');
         return this.post(`/organization/users/${id}/soft_delete/`);
     }
 
@@ -269,12 +277,11 @@ class APIService {
     }
 
     changePassword(password) {
-        return this.post('/organization/users/change_my_password/', {
-            password
-        });
+        return this.post('/organization/users/change_my_password/', { password });
     }
 
     createPunchRecord(data) {
+        this.invalidateCache('/attendance/punches/');
         return this.post('/attendance/punches/', data);
     }
 
@@ -295,6 +302,7 @@ class APIService {
     }
 
     createCorrection(data) {
+        this.invalidateCache('/attendance/corrections/');
         return this.post('/attendance/corrections/', data);
     }
 
@@ -311,6 +319,7 @@ class APIService {
     }
 
     createAllowanceRequest(data) {
+        this.invalidateCache('/allowance/requests/');
         return this.post('/allowance/requests/', data);
     }
 
@@ -319,17 +328,16 @@ class APIService {
     }
 
     approveAllowanceRequest(id) {
+        this.invalidateCache('/allowance/requests/');
         return this.post(`/allowance/requests/${id}/approve/`);
     }
 
     getPendingApprovals(params = {}) {
-        return this.get('/allowance/requests/', {
-            status: 'PENDING',
-            ...params
-        });
+        return this.get('/allowance/requests/', { status: 'PENDING', ...params });
     }
 
     rejectAllowanceRequest(id, data) {
+        this.invalidateCache('/allowance/requests/');
         return this.post(`/allowance/requests/${id}/reject/`, data);
     }
 
@@ -342,10 +350,12 @@ class APIService {
     }
 
     approveProfileRequest(id, data = {}) {
+        this.invalidateCache('/organization/profile-update/');
         return this.post(`/organization/profile-update/${id}/approve/`, data);
     }
 
     rejectProfileRequest(id, data = {}) {
+        this.invalidateCache('/organization/profile-update/');
         return this.post(`/organization/profile-update/${id}/reject/`, data);
     }
 
@@ -393,7 +403,6 @@ class APIService {
         return this.post('/auth/password-expiry/reset/', { user_id: userId, type });
     }
 
-    // Smart Distance System - Route APIs
     getRouteHistory(params = {}) {
         return this.get('/tracking/routes/history/', params);
     }
@@ -406,7 +415,6 @@ class APIService {
         return this.get(`/tracking/routes/daily/${employeeId}/`, params);
     }
 
-    // Backdate Correction System
     getCorrectionRequests(params = {}) {
         return this.get('/attendance/correction-requests/', params);
     }
@@ -420,25 +428,23 @@ class APIService {
     }
 
     createCorrectionRequest(data) {
+        this.invalidateCache('/attendance/correction-requests/');
         return this.post('/attendance/correction-requests/', data);
     }
 
     reviewCorrection(correctionId, action, comment = '') {
-        return this.post(`/attendance/correction-requests/${correctionId}/review/`, {
-            action,
-            comment
-        });
+        this.invalidateCache('/attendance/correction-requests/');
+        return this.post(`/attendance/correction-requests/${correctionId}/review/`, { action, comment });
     }
 
     getCorrectionSettings() {
-        return this.get('/attendance/correction-settings/');
+        return this.get('/attendance/correction-settings/', {}, true);
     }
 
     updateCorrectionSettings(data) {
         return this.patch('/attendance/correction-settings/', data);
     }
 
-    // Approval Hierarchy APIs
     getApprovalHierarchies() {
         return this.get('/organization/approval-hierarchies/');
     }
@@ -448,14 +454,17 @@ class APIService {
     }
 
     createApprovalHierarchy(data) {
+        this.invalidateCache('/organization/approval-hierarchies/');
         return this.post('/organization/approval-hierarchies/', data);
     }
 
     updateApprovalHierarchy(id, data) {
+        this.invalidateCache('/organization/approval-hierarchies/');
         return this.patch(`/organization/approval-hierarchies/${id}/`, data);
     }
 
     deleteApprovalHierarchy(id) {
+        this.invalidateCache('/organization/approval-hierarchies/');
         return this.delete(`/organization/approval-hierarchies/${id}/`);
     }
 
@@ -468,10 +477,10 @@ class APIService {
     }
 
     processApprovalRoute(routeId, action, comments = '') {
+        this.invalidateCache('/organization/approval-routes/');
         return this.post(`/organization/approval-routes/${routeId}/process/`, { action, comments });
     }
 
-    // Notifications APIs
     getNotifications(params = {}) {
         return this.get('/organization/notifications/', params);
     }
