@@ -62,7 +62,6 @@ const ADMIN_MENU = [
     { text: 'Punch Corrections', icon: EditIcon, path: '/admin/punch-corrections', feature: 'PUNCH_CORRECTIONS' },
     { text: 'CRM Visits', icon: LocationIcon, path: '/admin/crm-visits', feature: 'CRM_VISITS' },
     { text: 'Profile Approvals', icon: AssignmentIcon, path: '/admin/profile-approval', feature: 'PROFILE_APPROVALS' },
-    { text: 'Device Management', icon: PhonelinkIcon, path: '/admin/device-management', feature: 'DEVICE_MANAGEMENT' },
     { text: 'Create User', icon: PeopleIcon, path: '/admin/create-user', feature: 'CREATE_USER' },
 ];
 
