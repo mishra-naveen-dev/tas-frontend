@@ -45,6 +45,7 @@ const PasswordManagement = lazy(() => import('modules/admin/pages/PasswordManage
 const RouteMap = lazy(() => import('modules/admin/pages/RouteMap'));
 const CorrectionSettings = lazy(() => import('modules/admin/pages/CorrectionSettings'));
 const ApprovalHierarchySettings = lazy(() => import('modules/admin/pages/ApprovalHierarchySettings'));
+const FeatureManagement = lazy(() => import('modules/admin/pages/FeatureManagement'));
 
 // ================= ROUTES =================
 const AppRoutes = () => {
@@ -297,6 +298,17 @@ const AppRoutes = () => {
                         <ProtectedRoute requiredRoles={['SUPER_ADMIN']}>
                             <AppLayout>
                                 <ApprovalHierarchySettings />
+                            </AppLayout>
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/admin/feature-management"
+                    element={
+                        <ProtectedRoute requiredRoles={['SUPER_ADMIN']}>
+                            <AppLayout>
+                                <FeatureManagement />
                             </AppLayout>
                         </ProtectedRoute>
                     }

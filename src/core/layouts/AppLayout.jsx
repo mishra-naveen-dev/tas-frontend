@@ -43,6 +43,7 @@ import {
     AccountTree as HierarchyIcon,
     Notifications as NotificationsIcon,
     Circle as CircleIcon,
+    Settings as SettingsIcon,
 } from '@mui/icons-material';
 
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -52,35 +53,34 @@ import api from 'core/services/api';
 
 const DRAWER_WIDTH = 250;
 
-// ================= MENU CONFIG =================
 const ADMIN_MENU = [
-    { text: 'Dashboard', icon: DashboardIcon, path: '/admin/dashboard' },
-    { text: 'Pending Approvals', icon: AssignmentIcon, path: '/admin/pending-approvals' },
-    { text: 'Punch Details', icon: AssignmentIcon, path: '/admin/punch-details' },
-    { text: 'Employee Tracking', icon: PeopleIcon, path: '/admin/employee-tracking' },
-    { text: 'Route Map', icon: MapIcon, path: '/admin/route-map' },
-    { text: 'Punch Corrections', icon: EditIcon, path: '/admin/punch-corrections' },
-    { text: 'CRM Visits', icon: LocationIcon, path: '/admin/crm-visits' },
-    { text: 'Profile Approvals', icon: AssignmentIcon, path: '/admin/profile-approval' },
-    { text: 'Device Management', icon: PhonelinkIcon, path: '/admin/device-management' },
-    { text: 'Create User', icon: PeopleIcon, path: '/admin/create-user' },
-
+    { text: 'Dashboard', icon: DashboardIcon, path: '/admin/dashboard', feature: 'ADMIN_DASHBOARD' },
+    { text: 'Pending Approvals', icon: AssignmentIcon, path: '/admin/pending-approvals', feature: 'PENDING_APPROVALS' },
+    { text: 'Punch Details', icon: AssignmentIcon, path: '/admin/punch-details', feature: 'PUNCH_DETAILS' },
+    { text: 'Employee Tracking', icon: PeopleIcon, path: '/admin/employee-tracking', feature: 'EMPLOYEE_TRACKING' },
+    { text: 'Route Map', icon: MapIcon, path: '/admin/route-map', feature: 'ROUTE_MAP' },
+    { text: 'Punch Corrections', icon: EditIcon, path: '/admin/punch-corrections', feature: 'PUNCH_CORRECTIONS' },
+    { text: 'CRM Visits', icon: LocationIcon, path: '/admin/crm-visits', feature: 'CRM_VISITS' },
+    { text: 'Profile Approvals', icon: AssignmentIcon, path: '/admin/profile-approval', feature: 'PROFILE_APPROVALS' },
+    { text: 'Device Management', icon: PhonelinkIcon, path: '/admin/device-management', feature: 'DEVICE_MANAGEMENT' },
+    { text: 'Create User', icon: PeopleIcon, path: '/admin/create-user', feature: 'CREATE_USER' },
 ];
 
 const SUPER_ADMIN_MENU = [
-    { text: 'Dashboard', icon: DashboardIcon, path: '/admin/dashboard' },
-    { text: 'Pending Approvals', icon: AssignmentIcon, path: '/admin/pending-approvals' },
-    { text: 'Punch Details', icon: AssignmentIcon, path: '/admin/punch-details' },
-    { text: 'Employee Tracking', icon: PeopleIcon, path: '/admin/employee-tracking' },
-    { text: 'Route Map', icon: MapIcon, path: '/admin/route-map' },
-    { text: 'Punch Corrections', icon: EditIcon, path: '/admin/punch-corrections' },
-    { text: 'CRM Visits', icon: LocationIcon, path: '/admin/crm-visits' },
-    { text: 'Profile Approvals', icon: AssignmentIcon, path: '/admin/profile-approval' },
-    { text: 'Device Management', icon: PhonelinkIcon, path: '/admin/device-management' },
-    { text: 'Password Management', icon: LockIcon, path: '/admin/password-management' },
-    { text: 'Correction Settings', icon: RuleIcon, path: '/admin/correction-settings' },
-    { text: 'Approval Hierarchy', icon: HierarchyIcon, path: '/admin/approval-hierarchy' },
-    { text: 'Create User', icon: PeopleIcon, path: '/admin/create-user' },
+    { text: 'Dashboard', icon: DashboardIcon, path: '/admin/dashboard', feature: 'ADMIN_DASHBOARD' },
+    { text: 'Pending Approvals', icon: AssignmentIcon, path: '/admin/pending-approvals', feature: 'PENDING_APPROVALS' },
+    { text: 'Punch Details', icon: AssignmentIcon, path: '/admin/punch-details', feature: 'PUNCH_DETAILS' },
+    { text: 'Employee Tracking', icon: PeopleIcon, path: '/admin/employee-tracking', feature: 'EMPLOYEE_TRACKING' },
+    { text: 'Route Map', icon: MapIcon, path: '/admin/route-map', feature: 'ROUTE_MAP' },
+    { text: 'Punch Corrections', icon: EditIcon, path: '/admin/punch-corrections', feature: 'PUNCH_CORRECTIONS' },
+    { text: 'CRM Visits', icon: LocationIcon, path: '/admin/crm-visits', feature: 'CRM_VISITS' },
+    { text: 'Profile Approvals', icon: AssignmentIcon, path: '/admin/profile-approval', feature: 'PROFILE_APPROVALS' },
+    { text: 'Device Management', icon: PhonelinkIcon, path: '/admin/device-management', feature: 'DEVICE_MANAGEMENT' },
+    { text: 'Password Management', icon: LockIcon, path: '/admin/password-management', feature: 'PASSWORD_MANAGEMENT' },
+    { text: 'Correction Settings', icon: RuleIcon, path: '/admin/correction-settings', feature: 'CORRECTION_SETTINGS' },
+    { text: 'Approval Hierarchy', icon: HierarchyIcon, path: '/admin/approval-hierarchy', feature: 'APPROVAL_HIERARCHY' },
+    { text: 'Feature Management', icon: SettingsIcon, path: '/admin/feature-management', feature: 'FEATURE_MANAGEMENT' },
+    { text: 'Create User', icon: PeopleIcon, path: '/admin/create-user', feature: 'CREATE_USER' },
 ];
 
 const EMPLOYEE_MENU = [
@@ -105,6 +105,42 @@ const AppLayout = ({ children }) => {
     const [notificationAnchor, setNotificationAnchor] = useState(null);
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [enabledFeatures, setEnabledFeatures] = useState({});
+
+    // ================= FEATURES =================
+    useEffect(() => {
+        if (!user || userRole === 'EMPLOYEE') return;
+
+        const fetchFeatures = async () => {
+            try {
+                const cacheKey = `features_${user.role}`;
+                const cached = sessionStorage.getItem(cacheKey);
+                if (cached) {
+                    const parsed = JSON.parse(cached);
+                    if (Date.now() - parsed.timestamp < 300000) {
+                        setEnabledFeatures(parsed.features);
+                        return;
+                    }
+                }
+
+                const res = await api.getRoleFeaturesByRole(user.role);
+                const featuresData = res.data || [];
+                const featureMap = {};
+                featuresData.forEach(f => {
+                    featureMap[f.code] = f.is_enabled;
+                });
+                setEnabledFeatures(featureMap);
+                sessionStorage.setItem(cacheKey, JSON.stringify({
+                    features: featureMap,
+                    timestamp: Date.now()
+                }));
+            } catch (err) {
+                console.error('Failed to fetch features:', err);
+            }
+        };
+
+        fetchFeatures();
+    }, [user, userRole]);
 
     // ================= NOTIFICATIONS =================
     useEffect(() => {
@@ -132,9 +168,19 @@ const AppLayout = ({ children }) => {
     if (!user) return null;
 
     // ================= MENU =================
+    const filterMenuByFeatures = (menu) => {
+        if (userRole === 'SUPER_ADMIN') return menu;
+        if (userRole === 'EMPLOYEE') return menu;
+        
+        return menu.filter(item => {
+            if (!item.feature) return true;
+            return enabledFeatures[item.feature] !== false;
+        });
+    };
+
     const getMenuItems = () => {
         if (userRole === 'SUPER_ADMIN') return SUPER_ADMIN_MENU;
-        if (userRole === 'ADMIN') return ADMIN_MENU;
+        if (userRole === 'ADMIN') return filterMenuByFeatures(ADMIN_MENU);
         return EMPLOYEE_MENU;
     };
 

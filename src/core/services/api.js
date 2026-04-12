@@ -505,6 +505,33 @@ class ScalableAPI {
     clearReadNotifications() {
         return this.delete('/organization/notifications/clear_all/');
     }
+
+    getFeatures() {
+        return this.get('/organization/features/', {}, { useCache: true });
+    }
+
+    getRoleFeatures(roleId) {
+        return this.get('/organization/role-features/', { role: roleId });
+    }
+
+    getRoleFeaturesByRole(roleId) {
+        return this.get('/organization/role-features/by_role/', { role_id: roleId });
+    }
+
+    toggleRoleFeature(roleId, featureId, isEnabled) {
+        return this.post('/organization/role-features/toggle/', {
+            role_id: roleId,
+            feature_id: featureId,
+            is_enabled: isEnabled
+        });
+    }
+
+    bulkUpdateRoleFeatures(roleId, featureIds) {
+        return this.post('/organization/role-features/bulk_update/', {
+            role: roleId,
+            features: featureIds
+        });
+    }
 }
 
 if (typeof window !== 'undefined') {
