@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import {
     Box, Table, TableBody, TableCell, TableContainer,
-    TableHead, TableRow, Paper, CircularProgress, Alert,
+    TableHead, TableRow, Paper, Alert,
     Chip, Button, Typography, Grid, Card, CardContent,
     Dialog, DialogTitle, DialogContent, DialogActions,
     Divider, Stack, TextField, MenuItem
@@ -15,7 +15,7 @@ import {
 
 import api from 'core/services/api';
 import DistanceChart from 'modules/attendance/components/DistanceChart';
-import { TableSkeleton, ChartSkeleton } from 'shared/components/SkeletonLoader';
+import { TableSkeleton } from 'shared/components/SkeletonLoader';
 
 const AllowanceHistory = () => {
 

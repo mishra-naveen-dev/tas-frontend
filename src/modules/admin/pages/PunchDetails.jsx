@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { Box, Card, CardContent, Typography, Table, TableHead, TableRow, TableCell, TableBody, Grid, Chip, Divider, Avatar } from '@mui/material';
-import MapIcon from '@mui/icons-material/Map';
 import api from 'core/services/api';
 import AdvancedFilter from 'shared/components/AdvancedFilter';
 import { TableSkeleton } from 'shared/components/SkeletonLoader';

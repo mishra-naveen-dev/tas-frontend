@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { RetryHandler, RateLimiter, OfflineQueue, RequestCache } from './ApiUtils';
 
 const BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
@@ -33,7 +34,7 @@ const processQueue = (error, token = null) => {
 
 class ScalableAPI {
     constructor() {
-        this.api = window.axios.create({
+        this.api = axios.create({
             baseURL: API_V1,
             timeout: 30000,
             headers: { 'Content-Type': 'application/json' }
@@ -101,7 +102,7 @@ class ScalableAPI {
                     isRefreshing = true;
 
                     try {
-                        const res = await window.axios.post(`${AUTH_URL}/token/refresh/`, { refresh });
+                        const res = await axios.post(`${AUTH_URL}/token/refresh/`, { refresh });
                         const newAccess = res.data.access;
 
                         sessionStorage.setItem('access_token', newAccess);
@@ -229,7 +230,7 @@ class ScalableAPI {
     async login(username, password) {
         const deviceId = getDeviceId();
         
-        const res = await window.axios.post(`${AUTH_URL}/token/`, { username, password }, {
+        const res = await axios.post(`${AUTH_URL}/token/`, { username, password }, {
             headers: {
                 'X-DEVICE-ID': deviceId,
                 'X-PLATFORM': 'WEB',

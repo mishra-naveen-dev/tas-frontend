@@ -39,11 +39,10 @@ const PunchDetails = lazy(() => import('modules/admin/pages/PunchDetails'));
 const EmployeeTracking = lazy(() => import('modules/admin/pages/EmployeeTracking'));
 const CRMVisits = lazy(() => import('modules/admin/pages/CRMVisits'));
 const ProfileApproval = lazy(() => import('modules/admin/pages/ProfileApproval'));
-const AdminPunchCorrections = lazy(() => import('modules/admin/pages/AdminPunchCorrections'));
+const PunchCorrectionManagement = lazy(() => import('modules/admin/pages/PunchCorrectionManagement'));
 const AdminDeviceManagement = lazy(() => import('modules/admin/pages/AdminDeviceManagement'));
 const PasswordManagement = lazy(() => import('modules/admin/pages/PasswordManagement'));
 const RouteMap = lazy(() => import('modules/admin/pages/RouteMap'));
-const CorrectionApproval = lazy(() => import('modules/admin/pages/CorrectionApproval'));
 const CorrectionSettings = lazy(() => import('modules/admin/pages/CorrectionSettings'));
 const ApprovalHierarchySettings = lazy(() => import('modules/admin/pages/ApprovalHierarchySettings'));
 
@@ -231,7 +230,7 @@ const AppRoutes = () => {
                     element={
                         <ProtectedRoute requiredRoles={['ADMIN', 'SUPER_ADMIN']}>
                             <AppLayout>
-                                <AdminPunchCorrections />
+                                <PunchCorrectionManagement />
                             </AppLayout>
                         </ProtectedRoute>
                     }
@@ -276,17 +275,6 @@ const AppRoutes = () => {
                         <ProtectedRoute requiredRoles={['ADMIN', 'SUPER_ADMIN']}>
                             <AppLayout>
                                 <RouteMap />
-                            </AppLayout>
-                        </ProtectedRoute>
-                    }
-                />
-
-                <Route
-                    path="/admin/correction-approval"
-                    element={
-                        <ProtectedRoute requiredRoles={['ADMIN', 'SUPER_ADMIN']}>
-                            <AppLayout>
-                                <CorrectionApproval />
                             </AppLayout>
                         </ProtectedRoute>
                     }

@@ -9,7 +9,7 @@ import {
 
 import api from 'core/services/api';
 import DistanceChart from 'modules/attendance/components/DistanceChart';
-import { TableSkeleton, StatsSkeleton, ChartSkeleton } from 'shared/components/SkeletonLoader';
+import { TableSkeleton } from 'shared/components/SkeletonLoader';
 
 const DailySummary = () => {
 

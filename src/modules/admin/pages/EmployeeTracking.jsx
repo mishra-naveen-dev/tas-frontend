@@ -13,7 +13,6 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import api from 'core/services/api';
 import EmployeeCard from 'modules/admin/components/EmployeeCard';
 import EmployeeRouteModal from 'modules/employee/components/EmployeeRouteModal';
-import AdvancedFilter from 'shared/components/AdvancedFilter';
 
 const EmployeeTracking = () => {
 
