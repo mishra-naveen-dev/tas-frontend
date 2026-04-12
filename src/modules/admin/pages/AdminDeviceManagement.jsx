@@ -177,10 +177,18 @@ const AdminDeviceManagement = () => {
 
     const fetchUsers = async () => {
         try {
-            const res = await api.get('/organization/users/', { params: { page_size: 100 } });
-            setUsers(res.data.results || res.data);
+            const res = await api.get('/organization/users/', { params: { page_size: 1000, is_active: true } });
+            const allUsers = res.data.results || res.data || [];
+            setUsers(allUsers);
         } catch (err) {
             console.error('Failed to fetch users:', err);
+            try {
+                const fallbackRes = await api.get('/organization/users/');
+                const fallbackUsers = fallbackRes.data.results || fallbackRes.data || [];
+                setUsers(fallbackUsers);
+            } catch (fallbackErr) {
+                console.error('Failed to fetch users (fallback):', fallbackErr);
+            }
         }
     };
 
