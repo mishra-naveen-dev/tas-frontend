@@ -88,14 +88,19 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
 
         setLoading(true);
         try {
-            await api.createCorrectionRequest(form);
+            const payload = {
+                ...form,
+                original_punch_id: form.original_punch_id ? parseInt(form.original_punch_id) : null,
+            };
+            await api.createCorrectionRequest(payload);
             setSuccess('Correction request submitted successfully!');
             setTimeout(() => {
                 onSuccess();
                 onClose();
             }, 2000);
         } catch (err) {
-            setError(err.response?.data?.error || 'Failed to submit correction request');
+            const errData = err.response?.data;
+            setError(errData?.error || errData?.detail || 'Failed to submit correction request');
         } finally {
             setLoading(false);
         }
