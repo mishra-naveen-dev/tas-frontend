@@ -263,6 +263,20 @@ class ScalableAPI {
         sessionStorage.removeItem('device_id');
         sessionStorage.removeItem('device_info');
         CACHE.invalidate();
+        
+        // Call logout API
+        try {
+            const deviceId = localStorage.getItem('device_id');
+            if (deviceId) {
+                axios.post(`${AUTH_URL}/logout/`, {}, {
+                    headers: {
+                        'X-DEVICE-ID': deviceId,
+                        'X-PLATFORM': 'WEB',
+                    }
+                }).catch(() => {});
+            }
+        } catch (e) {}
+        
         window.location.replace('/#/login');
     }
 
@@ -554,6 +568,35 @@ class ScalableAPI {
             user: userId,
             features: featureIds
         });
+    }
+
+    // Session Management - One User One Device
+    getMySessions() {
+        return this.get('/organization/sessions/my_sessions/');
+    }
+
+    getActiveSession() {
+        return this.get('/organization/sessions/active_session/');
+    }
+
+    getAllSessions(params = {}) {
+        return this.get('/organization/sessions/', params);
+    }
+
+    terminateSession(sessionId) {
+        return this.post(`/organization/sessions/${sessionId}/terminate/`);
+    }
+
+    terminateAllUserSessions(userId) {
+        return this.post('/organization/sessions/terminate_all/', { user_id: userId });
+    }
+
+    logoutCurrentSession() {
+        return this.post('/organization/sessions/logout_current/');
+    }
+
+    logout() {
+        return this.post('/auth/logout/');
     }
 }
 

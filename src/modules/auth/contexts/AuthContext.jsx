@@ -26,6 +26,8 @@ export const AuthProvider = ({ children }) => {
     }, [user]);
 
     const logout = useCallback(() => {
+        // Call logout API to terminate session
+        api.logout().catch(() => {});
         sessionStorage.clear();
         setUser(null);
         window.location.replace('/#/login');
