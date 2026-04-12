@@ -3,7 +3,9 @@ import React, {
     useContext,
     useEffect,
     useState,
-    useMemo
+    useMemo,
+    useCallback,
+    useRef
 } from 'react';
 
 import api from 'core/services/api';
@@ -14,13 +16,39 @@ export const AuthProvider = ({ children }) => {
 
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [blocked, setBlocked] = useState(false);
+    const [blockedReason, setBlockedReason] = useState('');
 
-    // ================= ROLE =================
+    const logoutRef = useRef(null);
+
     const userRole = useMemo(() => {
         return user?.role_name || user?.role || null;
     }, [user]);
 
-    // ================= INIT AUTH =================
+    const logout = useCallback(() => {
+        sessionStorage.clear();
+        setUser(null);
+        window.location.replace('/#/login');
+    }, []);
+
+    logoutRef.current = logout;
+
+    useEffect(() => {
+        if (user?.is_blocked) {
+            setBlocked(true);
+            setBlockedReason(user.blocked_reason || 'Your account has been blocked');
+            const timer = setTimeout(() => {
+                if (logoutRef.current) {
+                    logoutRef.current();
+                }
+            }, 3000);
+            return () => clearTimeout(timer);
+        } else {
+            setBlocked(false);
+            setBlockedReason('');
+        }
+    }, [user]);
+
     useEffect(() => {
         const initAuth = async () => {
 
@@ -140,6 +168,15 @@ export const AuthProvider = ({ children }) => {
                 };
             }
 
+            if (errorCode === 'USER_BLOCKED') {
+                return {
+                    success: false,
+                    message: errorData?.blocked_reason || "Your account has been blocked. Please contact your administrator.",
+                    code: errorCode,
+                    blocked: true
+                };
+            }
+
             return {
                 success: false,
                 message: errorMessage || "Invalid username or password"
@@ -147,14 +184,6 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    // ================= LOGOUT =================
-    const logout = () => {
-        sessionStorage.clear();
-        setUser(null);
-        window.location.replace('/#/login');
-    };
-
-    // ================= CONTEXT =================
     const value = {
         user,
         setUser,
@@ -162,7 +191,9 @@ export const AuthProvider = ({ children }) => {
         isAuthenticated: !!user,
         userRole,
         login,
-        logout
+        logout,
+        blocked,
+        blockedReason
     };
 
     return (

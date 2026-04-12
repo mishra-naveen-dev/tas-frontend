@@ -45,6 +45,7 @@ import {
     Cancel as RejectedIcon,
     DeleteSweep as ResetIcon,
     PersonOff as ResetUserIcon,
+    PersonOffOutlined,
 } from '@mui/icons-material';
 import api from 'core/services/api';
 import { TableSkeleton } from 'shared/components/SkeletonLoader';
@@ -229,6 +230,7 @@ const AdminDeviceManagement = () => {
         if (activeTab === 1) matchesStatus = device.status === 'PENDING';
         else if (activeTab === 2) matchesStatus = device.status === 'APPROVED';
         else if (activeTab === 3) matchesStatus = device.status === 'BLOCKED' || device.status === 'REJECTED';
+        else if (activeTab === 4) matchesStatus = device.user_is_blocked === true;
         
         return matchesSearch && matchesPlatform && matchesStatus;
     });
@@ -307,6 +309,13 @@ const AdminDeviceManagement = () => {
                 />
                 <Tab label={`Approved (${devices.filter(d => d.status === 'APPROVED').length})`} />
                 <Tab label={`Blocked (${devices.filter(d => d.status === 'BLOCKED' || d.status === 'REJECTED').length})`} />
+                <Tab 
+                    label={
+                        <Badge badgeContent={devices.filter(d => d.user_is_blocked).length} color="error">
+                            User Blocked
+                        </Badge>
+                    }
+                />
             </Tabs>
 
             <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
@@ -373,12 +382,21 @@ const AdminDeviceManagement = () => {
                             filteredDevices.map((device) => (
                                 <TableRow key={device.id} hover>
                                     <TableCell>
-                                        <Typography variant="body2">
-                                            {device.username}
-                                        </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                            {device.employee_id || 'N/A'}
-                                        </Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                            {device.user_is_blocked && (
+                                                <Tooltip title={`User blocked: ${device.user_blocked_reason || 'Security violation'}`}>
+                                                    <PersonOffOutlined fontSize="small" sx={{ color: 'error.main' }} />
+                                                </Tooltip>
+                                            )}
+                                            <Box>
+                                                <Typography variant="body2">
+                                                    {device.username}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {device.employee_id || 'N/A'}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
                                     </TableCell>
                                     <TableCell>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -469,13 +487,32 @@ const AdminDeviceManagement = () => {
                                             )}
 
                                             {(device.status === 'BLOCKED' || device.status === 'REJECTED') && (
-                                                <Tooltip title="Unblock">
+                                                <Tooltip title="Unblock Device">
                                                     <IconButton
                                                         size="small"
                                                         color="success"
                                                         onClick={() => setConfirmDialog({ open: true, device, action: 'unblock' })}
                                                     >
                                                         <UnlockIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            )}
+                                            
+                                            {device.user_is_blocked && (
+                                                <Tooltip title={`Unblock User: ${device.user_blocked_reason || 'Security violation'}`}>
+                                                    <IconButton
+                                                        size="small"
+                                                        color="warning"
+                                                        onClick={() => {
+                                                            const userId = device.user;
+                                                            if (window.confirm(`Unblock user "${device.username}"?`)) {
+                                                                api.post(`/organization/users/${userId}/unblock/`)
+                                                                    .then(() => fetchDevices())
+                                                                    .catch((err) => alert(err.response?.data?.error || 'Failed to unblock user'));
+                                                            }
+                                                        }}
+                                                    >
+                                                        <PersonOffOutlined fontSize="small" />
                                                     </IconButton>
                                                 </Tooltip>
                                             )}
@@ -502,6 +539,11 @@ const AdminDeviceManagement = () => {
                 <DialogContent>
                     {viewDialog.device && (
                         <Box sx={{ pt: 1 }}>
+                            {viewDialog.device.user_is_blocked && (
+                                <Alert severity="error" sx={{ mb: 2 }}>
+                                    <strong>User Blocked:</strong> {viewDialog.device.user_blocked_reason || 'Security violation'}
+                                </Alert>
+                            )}
                             <Box sx={{ display: 'grid', gap: 2 }}>
                                 <Box>
                                     <Typography variant="caption" color="text.secondary">User</Typography>
@@ -565,6 +607,26 @@ const AdminDeviceManagement = () => {
                     )}
                 </DialogContent>
                 <DialogActions>
+                    {viewDialog.device?.user_is_blocked && (
+                        <Button
+                            onClick={() => {
+                                const userId = viewDialog.device.user;
+                                api.post(`/organization/users/${userId}/unblock/`)
+                                    .then(() => {
+                                        setViewDialog({ open: false, device: null });
+                                        fetchDevices();
+                                    })
+                                    .catch((err) => {
+                                        alert(err.response?.data?.error || 'Failed to unblock user');
+                                    });
+                            }}
+                            color="success"
+                            variant="contained"
+                            startIcon={<UnlockIcon />}
+                        >
+                            Unblock User
+                        </Button>
+                    )}
                     <Button onClick={() => setViewDialog({ open: false, device: null })}>
                         Close
                     </Button>
