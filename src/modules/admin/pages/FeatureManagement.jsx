@@ -3,14 +3,15 @@ import {
     Box, Typography, Card, CardContent, Table, TableBody,
     TableCell, TableContainer, TableHead, TableRow, Switch, Chip,
     Button, FormControl, InputLabel, Select, MenuItem, Alert,
-    Snackbar, CircularProgress
+    Snackbar, CircularProgress, Paper
 } from '@mui/material';
 import {
     Dashboard as DashboardIcon,
     People as PeopleIcon,
     Assessment as AssessmentIcon,
     Settings as SettingsIcon,
-    CheckCircle as CheckIcon,
+    Save as SaveIcon,
+    Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import api from 'core/services/api';
 
@@ -34,7 +35,8 @@ const FeatureManagement = () => {
     const [roleFeatures, setRoleFeatures] = useState({});
     const [selectedRole, setSelectedRole] = useState('');
     const [loading, setLoading] = useState(true);
-    const [fetching, setFetching] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [hasChanges, setHasChanges] = useState(false);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
     useEffect(() => {
@@ -48,7 +50,9 @@ const FeatureManagement = () => {
             const featuresRes = await api.getFeatures();
 
             const allRoles = rolesRes.data || [];
-            const adminRoles = allRoles.filter(r => r.name !== 'SUPER_ADMIN' && r.name !== 'EMPLOYEE' && r.name !== 'GUEST');
+            const adminRoles = allRoles.filter(r => 
+                r.name !== 'SUPER_ADMIN' && r.name !== 'EMPLOYEE' && r.name !== 'GUEST'
+            );
             setRoles(adminRoles);
 
             const features = featuresRes.data || [];
@@ -75,7 +79,7 @@ const FeatureManagement = () => {
     }, [selectedRole]);
 
     const loadRoleFeatures = async (roleId) => {
-        setFetching(true);
+        setLoading(true);
         try {
             const res = await api.getRoleFeaturesByRole(roleId);
             const featuresData = res.data || [];
@@ -84,6 +88,7 @@ const FeatureManagement = () => {
                 featureMap[f.id] = f.is_enabled;
             });
             setRoleFeatures(featureMap);
+            setHasChanges(false);
         } catch (err) {
             console.error('Error fetching role features:', err);
             setSnackbar({
@@ -92,7 +97,7 @@ const FeatureManagement = () => {
                 severity: 'error'
             });
         } finally {
-            setFetching(false);
+            setLoading(false);
         }
     };
 
@@ -100,86 +105,63 @@ const FeatureManagement = () => {
         setSelectedRole(e.target.value);
     };
 
-    const handleToggle = async (featureId, currentState) => {
-        const newState = !currentState;
-        
+    const handleToggle = (featureId) => {
+        const newState = !roleFeatures[featureId];
         setRoleFeatures(prev => ({
             ...prev,
             [featureId]: newState
         }));
-
-        try {
-            await api.toggleRoleFeature(selectedRole, featureId, newState);
-            setSnackbar({
-                open: true,
-                message: `Feature ${newState ? 'enabled' : 'disabled'} successfully`,
-                severity: 'success'
-            });
-        } catch (err) {
-            setRoleFeatures(prev => ({
-                ...prev,
-                [featureId]: currentState
-            }));
-            setSnackbar({
-                open: true,
-                message: 'Failed to update feature',
-                severity: 'error'
-            });
-        }
+        setHasChanges(true);
     };
 
-    const handleEnableAll = async (category) => {
+    const handleSelectAll = (category) => {
         const categoryFeatures = allFeatures.filter(f => f.category === category);
-        const categoryIds = categoryFeatures.map(f => f.id);
-        
         const newFeatures = { ...roleFeatures };
-        categoryIds.forEach(id => {
-            newFeatures[id] = true;
+        categoryFeatures.forEach(f => {
+            newFeatures[f.id] = true;
         });
         setRoleFeatures(newFeatures);
-
-        try {
-            await api.bulkUpdateRoleFeatures(selectedRole, Object.keys(newFeatures).filter(k => newFeatures[k]).map(Number));
-            setSnackbar({
-                open: true,
-                message: `All ${category.toLowerCase()} features enabled`,
-                severity: 'success'
-            });
-        } catch (err) {
-            loadRoleFeatures(selectedRole);
-            setSnackbar({
-                open: true,
-                message: 'Failed to update features',
-                severity: 'error'
-            });
-        }
+        setHasChanges(true);
     };
 
-    const handleDisableAll = async (category) => {
+    const handleDeselectAll = (category) => {
         const categoryFeatures = allFeatures.filter(f => f.category === category);
-        
         const newFeatures = { ...roleFeatures };
         categoryFeatures.forEach(f => {
             newFeatures[f.id] = false;
         });
         setRoleFeatures(newFeatures);
+        setHasChanges(true);
+    };
 
+    const handleSave = async () => {
+        setSaving(true);
         try {
-            const enabledIds = Object.keys(newFeatures).filter(k => newFeatures[k]).map(Number);
-            await api.bulkUpdateRoleFeatures(selectedRole, enabledIds);
+            const enabledFeatureIds = Object.entries(roleFeatures)
+                .filter(([_, enabled]) => enabled)
+                .map(([id, _]) => Number(id));
+
+            await api.bulkUpdateRoleFeatures(selectedRole, enabledFeatureIds);
+            setHasChanges(false);
             setSnackbar({
                 open: true,
-                message: `All ${category.toLowerCase()} features disabled`,
+                message: 'Features updated successfully!',
                 severity: 'success'
             });
         } catch (err) {
-            loadRoleFeatures(selectedRole);
+            console.error('Error saving features:', err);
             setSnackbar({
                 open: true,
-                message: 'Failed to update features',
+                message: 'Failed to save features.',
                 severity: 'error'
             });
+        } finally {
+            setSaving(false);
         }
+    };
+
+    const handleRefresh = () => {
+        loadRoleFeatures(selectedRole);
     };
 
     const groupedFeatures = allFeatures.reduce((acc, feature) => {
@@ -190,7 +172,12 @@ const FeatureManagement = () => {
         return acc;
     }, {});
 
-    if (loading) {
+    const selectedRoleName = roles.find(r => r.id === selectedRole)?.name || '';
+
+    const totalFeatures = allFeatures.length;
+    const enabledFeatures = Object.values(roleFeatures).filter(v => v).length;
+
+    if (loading && allFeatures.length === 0) {
         return (
             <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
                 <CircularProgress />
@@ -203,101 +190,162 @@ const FeatureManagement = () => {
             <Box sx={{ mb: 3 }}>
                 <Typography variant="h5" fontWeight="bold">Feature Management</Typography>
                 <Typography variant="body2" color="text.secondary">
-                    Enable or disable features for each role
+                    Assign or remove features for roles. Only SuperAdmin can manage features.
                 </Typography>
             </Box>
 
             <Card sx={{ mb: 3 }}>
                 <CardContent>
-                    <FormControl fullWidth sx={{ maxWidth: 400 }}>
-                        <InputLabel>Select Role</InputLabel>
-                        <Select
-                            value={selectedRole}
-                            onChange={handleRoleChange}
-                            label="Select Role"
+                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <FormControl sx={{ minWidth: 250 }}>
+                            <InputLabel>Select Role</InputLabel>
+                            <Select
+                                value={selectedRole}
+                                onChange={handleRoleChange}
+                                label="Select Role"
+                            >
+                                {roles.length === 0 ? (
+                                    <MenuItem value="">No roles found</MenuItem>
+                                ) : (
+                                    roles.map(role => (
+                                        <MenuItem key={role.id} value={role.id}>
+                                            {role.name}
+                                        </MenuItem>
+                                    ))
+                                )}
+                            </Select>
+                        </FormControl>
+
+                        <Chip 
+                            label={`${enabledFeatures}/${totalFeatures} Features Enabled`}
+                            color={enabledFeatures === totalFeatures ? 'success' : 'default'}
+                            variant="outlined"
+                        />
+
+                        <Box sx={{ flexGrow: 1 }} />
+
+                        <Button
+                            variant="outlined"
+                            startIcon={<RefreshIcon />}
+                            onClick={handleRefresh}
+                            disabled={loading}
                         >
-                            {roles.length === 0 ? (
-                                <MenuItem value="">No roles found</MenuItem>
-                            ) : (
-                                roles.map(role => (
-                                    <MenuItem key={role.id} value={role.id}>
-                                        {role.name}
-                                    </MenuItem>
-                                ))
-                            )}
-                        </Select>
-                    </FormControl>
+                            Refresh
+                        </Button>
+
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
+                            onClick={handleSave}
+                            disabled={saving || !hasChanges}
+                        >
+                            {saving ? 'Saving...' : 'Save Changes'}
+                        </Button>
+                    </Box>
                 </CardContent>
             </Card>
 
-            {fetching ? (
+            {hasChanges && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                    You have unsaved changes. Click "Save Changes" to apply them.
+                </Alert>
+            )}
+
+            {loading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
                     <CircularProgress />
                 </Box>
             ) : (
-                Object.entries(groupedFeatures).map(([category, categoryFeatures]) => {
-                    const enabledCount = categoryFeatures.filter(f => roleFeatures[f.id]).length;
-                    const allEnabled = enabledCount === categoryFeatures.length;
+                <Paper sx={{ overflow: 'hidden' }}>
+                    <TableContainer sx={{ maxHeight: 'calc(100vh - 350px)' }}>
+                        <Table stickyHeader size="small">
+                            <TableHead>
+                                <TableRow sx={{ bgcolor: 'primary.main' }}>
+                                    <TableCell sx={{ bgcolor: 'primary.main', color: 'white', fontWeight: 'bold', width: '40%' }}>
+                                        Feature Name
+                                    </TableCell>
+                                    <TableCell sx={{ bgcolor: 'primary.main', color: 'white', fontWeight: 'bold', width: '15%' }}>
+                                        Category
+                                    </TableCell>
+                                    <TableCell sx={{ bgcolor: 'primary.main', color: 'white', fontWeight: 'bold' }}>
+                                        Description
+                                    </TableCell>
+                                    <TableCell sx={{ bgcolor: 'primary.main', color: 'white', fontWeight: 'bold', width: '15%', textAlign: 'center' }}>
+                                        Menu Path
+                                    </TableCell>
+                                    <TableCell sx={{ bgcolor: 'primary.main', color: 'white', fontWeight: 'bold', width: '10%', textAlign: 'center' }}>
+                                        Enabled
+                                    </TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {Object.entries(groupedFeatures).map(([category, categoryFeatures]) => {
+                                    const categoryEnabled = categoryFeatures.filter(f => roleFeatures[f.id]).length;
+                                    const categoryTotal = categoryFeatures.length;
 
-                    return (
-                        <Card key={category} sx={{ mb: 2 }}>
-                            <CardContent>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Box sx={{ color: CATEGORY_COLORS[category] }}>
-                                            {CATEGORY_ICONS[category]}
-                                        </Box>
-                                        <Typography variant="h6" fontWeight="bold">
-                                            {category.charAt(0) + category.slice(1).toLowerCase()} Features
-                                        </Typography>
-                                        <Chip 
-                                            label={`${enabledCount}/${categoryFeatures.length}`}
-                                            size="small"
-                                            color={allEnabled ? 'success' : 'default'}
-                                        />
-                                    </Box>
-                                    <Box sx={{ display: 'flex', gap: 1 }}>
-                                        <Button
-                                            size="small"
-                                            variant="outlined"
-                                            onClick={() => handleEnableAll(category)}
-                                            disabled={allEnabled}
-                                            startIcon={<CheckIcon />}
-                                        >
-                                            Enable All
-                                        </Button>
-                                        <Button
-                                            size="small"
-                                            variant="outlined"
-                                            color="error"
-                                            onClick={() => handleDisableAll(category)}
-                                            disabled={enabledCount === 0}
-                                        >
-                                            Disable All
-                                        </Button>
-                                    </Box>
-                                </Box>
-
-                                <TableContainer>
-                                    <Table size="small">
-                                        <TableHead>
+                                    return (
+                                        <React.Fragment key={category}>
                                             <TableRow sx={{ bgcolor: 'grey.100' }}>
-                                                <TableCell sx={{ fontWeight: 'bold', width: '40%' }}>Feature</TableCell>
-                                                <TableCell sx={{ fontWeight: 'bold' }}>Description</TableCell>
-                                                <TableCell sx={{ fontWeight: 'bold', width: '15%', textAlign: 'center' }}>Menu</TableCell>
-                                                <TableCell sx={{ fontWeight: 'bold', width: '10%', textAlign: 'center' }}>Enabled</TableCell>
+                                                <TableCell colSpan={5} sx={{ fontWeight: 'bold', py: 1 }}>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <Box sx={{ color: CATEGORY_COLORS[category] }}>
+                                                            {CATEGORY_ICONS[category]}
+                                                        </Box>
+                                                        <Typography variant="subtitle2" fontWeight="bold">
+                                                            {category.charAt(0) + category.slice(1).toLowerCase()} ({categoryEnabled}/{categoryTotal})
+                                                        </Typography>
+                                                        <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
+                                                            <Button 
+                                                                size="small" 
+                                                                variant="text"
+                                                                onClick={() => handleSelectAll(category)}
+                                                                disabled={categoryEnabled === categoryTotal}
+                                                            >
+                                                                Enable All
+                                                            </Button>
+                                                            <Button 
+                                                                size="small" 
+                                                                variant="text"
+                                                                color="error"
+                                                                onClick={() => handleDeselectAll(category)}
+                                                                disabled={categoryEnabled === 0}
+                                                            >
+                                                                Disable All
+                                                            </Button>
+                                                        </Box>
+                                                    </Box>
+                                                </TableCell>
                                             </TableRow>
-                                        </TableHead>
-                                        <TableBody>
                                             {categoryFeatures.map(feature => (
-                                                <TableRow key={feature.id} hover>
+                                                <TableRow 
+                                                    key={feature.id}
+                                                    hover
+                                                    sx={{ 
+                                                        '&:hover': { bgcolor: 'grey.50' },
+                                                        transition: 'background-color 0.2s'
+                                                    }}
+                                                >
                                                     <TableCell>
-                                                        <Typography variant="body2" fontWeight="medium">
-                                                            {feature.name}
-                                                        </Typography>
-                                                        <Typography variant="caption" color="text.secondary">
-                                                            {feature.code}
-                                                        </Typography>
+                                                        <Box>
+                                                            <Typography variant="body2" fontWeight="medium">
+                                                                {feature.name}
+                                                            </Typography>
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                Code: {feature.code}
+                                                            </Typography>
+                                                        </Box>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Chip 
+                                                            label={category} 
+                                                            size="small"
+                                                            sx={{ 
+                                                                bgcolor: `${CATEGORY_COLORS[category]}20`,
+                                                                color: CATEGORY_COLORS[category],
+                                                                fontWeight: 'bold'
+                                                            }}
+                                                        />
                                                     </TableCell>
                                                     <TableCell>
                                                         <Typography variant="body2" color="text.secondary">
@@ -305,29 +353,40 @@ const FeatureManagement = () => {
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell sx={{ textAlign: 'center' }}>
-                                                        <Chip 
-                                                            label={feature.menu_text} 
-                                                            size="small" 
-                                                            variant="outlined"
-                                                        />
+                                                        <Typography variant="body2" sx={{ 
+                                                            fontFamily: 'monospace',
+                                                            fontSize: '0.75rem'
+                                                        }}>
+                                                            {feature.menu_path}
+                                                        </Typography>
                                                     </TableCell>
                                                     <TableCell sx={{ textAlign: 'center' }}>
                                                         <Switch
                                                             checked={roleFeatures[feature.id] || false}
-                                                            onChange={() => handleToggle(feature.id, roleFeatures[feature.id])}
+                                                            onChange={() => handleToggle(feature.id)}
                                                             color="success"
+                                                            size="medium"
                                                         />
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
-                                        </TableBody>
-                                    </Table>
-                                </TableContainer>
-                            </CardContent>
-                        </Card>
-                    );
-                })
+                                        </React.Fragment>
+                                    );
+                                })}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </Paper>
             )}
+
+            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="caption" color="text.secondary">
+                    Total: {totalFeatures} features | Role: {selectedRoleName}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                    Features are fetched automatically from the database
+                </Typography>
+            </Box>
 
             <Snackbar
                 open={snackbar.open}
