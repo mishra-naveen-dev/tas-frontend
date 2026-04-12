@@ -113,7 +113,7 @@ const AppLayout = ({ children }) => {
 
         const fetchFeatures = async () => {
             try {
-                const cacheKey = `features_${user.role}`;
+                const cacheKey = `features_${user.id}`;
                 const cached = sessionStorage.getItem(cacheKey);
                 if (cached) {
                     const parsed = JSON.parse(cached);
@@ -123,7 +123,7 @@ const AppLayout = ({ children }) => {
                     }
                 }
 
-                const res = await api.getRoleFeaturesByRole(user.role);
+                const res = await api.getUserFeaturesByUser(user.id);
                 const featuresData = res.data || [];
                 const featureMap = {};
                 featuresData.forEach(f => {
