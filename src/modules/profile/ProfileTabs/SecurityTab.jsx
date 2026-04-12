@@ -13,9 +13,13 @@ import {
     IconButton,
     Chip,
     Divider,
-    Alert
+    Alert,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
 } from '@mui/material';
-import { Delete as DeleteIcon, Computer as ComputerIcon } from '@mui/icons-material';
+import { Delete as DeleteIcon, Computer as ComputerIcon, Warning as WarningIcon } from '@mui/icons-material';
 import api from 'core/services/api';
 import { useAuth } from 'modules/auth/contexts/AuthContext';
 
@@ -25,6 +29,7 @@ const SecurityTab = () => {
     const [sessions, setSessions] = useState([]);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
+    const [confirmDialog, setConfirmDialog] = useState({ open: false, title: '', onConfirm: () => {} });
 
     const fetchSessions = async () => {
         try {
@@ -49,33 +54,43 @@ const SecurityTab = () => {
     };
 
     const handleTerminateSession = async (sessionId) => {
-        if (!confirm('Are you sure you want to terminate this session?')) return;
-        
-        setLoading(true);
-        try {
-            await api.terminateSession(sessionId);
-            setMessage('Session terminated successfully');
-            fetchSessions();
-        } catch (err) {
-            setMessage('Failed to terminate session');
-        }
-        setLoading(false);
-        setTimeout(() => setMessage(''), 3000);
+        setConfirmDialog({
+            open: true,
+            title: 'Terminate Session',
+            message: 'Are you sure you want to terminate this session?',
+            onConfirm: async () => {
+                setLoading(true);
+                try {
+                    await api.terminateSession(sessionId);
+                    setMessage('Session terminated successfully');
+                    fetchSessions();
+                } catch (err) {
+                    setMessage('Failed to terminate session');
+                }
+                setLoading(false);
+                setTimeout(() => setMessage(''), 3000);
+            }
+        });
     };
 
     const handleLogoutAll = async () => {
-        if (!confirm('Are you sure you want to logout from all other devices? This will keep only current session.')) return;
-        
-        setLoading(true);
-        try {
-            await api.terminateAllUserSessions(user.id);
-            setMessage('All other sessions terminated');
-            fetchSessions();
-        } catch (err) {
-            setMessage('Failed to terminate sessions');
-        }
-        setLoading(false);
-        setTimeout(() => setMessage(''), 3000);
+        setConfirmDialog({
+            open: true,
+            title: 'Logout Other Devices',
+            message: 'Are you sure you want to logout from all other devices? This will keep only current session.',
+            onConfirm: async () => {
+                setLoading(true);
+                try {
+                    await api.terminateAllUserSessions(user.id);
+                    setMessage('All other sessions terminated');
+                    fetchSessions();
+                } catch (err) {
+                    setMessage('Failed to terminate sessions');
+                }
+                setLoading(false);
+                setTimeout(() => setMessage(''), 3000);
+            }
+        });
     };
 
     const getCurrentDeviceId = () => localStorage.getItem('device_id');
@@ -175,6 +190,29 @@ const SecurityTab = () => {
                     )}
                 </CardContent>
             </Card>
+
+            <Dialog open={confirmDialog.open} onClose={() => setConfirmDialog({ ...confirmDialog, open: false })}>
+                <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <WarningIcon color="warning" />
+                    {confirmDialog.title}
+                </DialogTitle>
+                <DialogContent>
+                    <Typography>{confirmDialog.message}</Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setConfirmDialog({ ...confirmDialog, open: false })}>Cancel</Button>
+                    <Button 
+                        variant="contained" 
+                        color="error"
+                        onClick={() => {
+                            confirmDialog.onConfirm();
+                            setConfirmDialog({ ...confirmDialog, open: false });
+                        }}
+                    >
+                        Confirm
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 };

@@ -39,9 +39,14 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
         correction_time: '',
         punch_type: 'PUNCH_IN',
         from_address: '',
+        pincode: '',
+        place_id: '',
         to_address: '',
         reason: '',
     });
+    const [addressSuggestions, setAddressSuggestions] = useState([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [addressLoading, setAddressLoading] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -56,6 +61,7 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                 correction_time: new Date(editPunch.punched_at).toTimeString().slice(0, 5),
                 punch_type: editPunch.punch_type,
                 from_address: `Lat: ${editPunch.latitude}, Lng: ${editPunch.longitude}`,
+                pincode: editPunch.pincode || '',
                 reason: '',
             }));
         } else {
@@ -66,6 +72,7 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                 correction_time: '',
                 punch_type: 'PUNCH_IN',
                 from_address: '',
+                pincode: '',
                 to_address: '',
                 reason: '',
             });
@@ -75,14 +82,63 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
     const handleChange = (e) => {
         const { name, value } = e.target;
         setForm(prev => ({ ...prev, [name]: value }));
+        
+        // Address autocomplete
+        if (name === 'from_address' && value.length >= 3) {
+            fetchAddressSuggestions(value);
+        } else if (name === 'from_address' && value.length < 3) {
+            setAddressSuggestions([]);
+        }
+    };
+
+    const fetchAddressSuggestions = async (query) => {
+        setAddressLoading(true);
+        try {
+            const res = await api.getAddressSuggestions(query, 5);
+            setAddressSuggestions(res.data || []);
+            setShowSuggestions(true);
+        } catch (err) {
+            setAddressSuggestions([]);
+        }
+        setAddressLoading(false);
+    };
+
+    const handleSelectAddress = async (suggestion) => {
+        setForm(prev => ({
+            ...prev,
+            from_address: suggestion.description,
+            place_id: suggestion.place_id
+        }));
+        setShowSuggestions(false);
+        setAddressSuggestions([]);
+        
+        // Fetch details to get pincode
+        try {
+            const res = await api.getAddressDetails(suggestion.place_id);
+            const details = res.data;
+            if (details.pincode) {
+                setForm(prev => ({ ...prev, pincode: details.pincode }));
+            }
+        } catch (err) {}
     };
 
     const handleSubmit = async () => {
         setError('');
         setSuccess('');
 
-        if (!form.correction_date || !form.correction_time || !form.from_address || !form.reason) {
-            setError('All fields are required');
+        // Require either address OR pincode
+        if (!form.correction_date || !form.correction_time || !form.reason) {
+            setError('Date, time and reason are required');
+            return;
+        }
+
+        if (!form.from_address && !form.pincode) {
+            setError('Either address or pincode is required');
+            return;
+        }
+
+        if (form.pincode && !/^\d{6}$/.test(form.pincode)) {
+            setError('Pincode must be 6 digits');
             return;
         }
 
@@ -100,7 +156,11 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
             }, 2000);
         } catch (err) {
             const errData = err.response?.data;
-            setError(errData?.error || errData?.detail || 'Failed to submit correction request');
+            let errMsg = errData?.error;
+            if (typeof errMsg === 'object' && errMsg !== null) {
+                errMsg = Object.entries(errMsg).map(([k, v]) => `${k}: ${v}`).join(', ');
+            }
+            setError(errMsg || errData?.detail || 'Failed to submit correction request');
         } finally {
             setLoading(false);
         }
@@ -176,7 +236,7 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                         />
                     </Grid>
 
-                    <Grid item xs={12}>
+                    <Grid item xs={12} sx={{ position: 'relative' }}>
                         <TextField
                             fullWidth
                             size="small"
@@ -184,10 +244,39 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                             name="from_address"
                             value={form.from_address}
                             onChange={handleChange}
-                            placeholder="Enter full address or coordinates (lat, lng)"
+                            placeholder="Start typing address..."
+                            onFocus={() => addressSuggestions.length > 0 && setShowSuggestions(true)}
                             InputProps={{
                                 startAdornment: <PlaceIcon sx={{ mr: 1, color: 'action.active' }} />,
                             }}
+                        />
+                        {showSuggestions && addressSuggestions.length > 0 && (
+                            <Paper sx={{ position: 'absolute', left: 0, right: 0, zIndex: 10, maxHeight: 200, overflow: 'auto' }}>
+                                {addressSuggestions.map((s, i) => (
+                                    <MenuItem 
+                                        key={s.place_id || i} 
+                                        onClick={() => handleSelectAddress(s)}
+                                        sx={{ whiteSpace: 'normal', fontSize: 14 }}
+                                    >
+                                        {s.description}
+                                    </MenuItem>
+                                ))}
+                            </Paper>
+                        )}
+                    </Grid>
+
+                    <Grid item xs={12} sm={6}>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            label="Pincode (Optional)"
+                            name="pincode"
+                            value={form.pincode}
+                            onChange={handleChange}
+                            placeholder="6-digit pincode"
+                            inputProps={{ maxLength: 6 }}
+                            error={form.pincode.length > 0 && form.pincode.length !== 6}
+                            helperText={form.pincode.length > 0 && form.pincode.length !== 6 ? '6 digits required' : 'Auto-filled from address'}
                         />
                     </Grid>
 
