@@ -1,119 +1,46 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-    Container,
-    Typography,
-    Paper,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Button,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    TextField,
-    Chip,
-    Box,
-    Alert,
-    Snackbar,
-    IconButton,
-    Tooltip,
-    Tabs,
-    Tab
+    Box, Typography, Paper, Table, TableHead, TableRow, TableCell,
+    TableBody, TableContainer, Button, Chip, Dialog, DialogTitle, DialogContent, DialogActions,
+    TextField, CircularProgress, Grid, Card, CardContent, Divider, Stack, IconButton, Tooltip, Tabs, Tab
 } from '@mui/material';
-
-import {
-    Check as ApproveIcon,
-    Close as RejectIcon,
-    Visibility as ViewIcon
-} from '@mui/icons-material';
-
+import { CheckCircle as ApproveIcon, Cancel as RejectIcon, Visibility as ViewIcon, Refresh as RefreshIcon } from '@mui/icons-material';
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import api from 'core/services/api';
+import { TableSkeleton } from 'shared/components/SkeletonLoader';
 
 const PunchCorrectionManagement = () => {
     const [corrections, setCorrections] = useState([]);
+    const [newCorrections, setNewCorrections] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [tabValue, setTabValue] = useState(0);
-    const [selectedCorrection, setSelectedCorrection] = useState(null);
-    const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
-    const [reviewAction, setReviewAction] = useState('approve');
-    const [reviewNotes, setReviewNotes] = useState('');
-    const [snackbar, setSnackbar] = useState({
-        open: false,
-        message: '',
-        severity: 'success'
-    });
+    const [activeTab, setActiveTab] = useState(0);
+    const [selected, setSelected] = useState(null);
+    const [dialogType, setDialogType] = useState(null);
+    const [remarks, setRemarks] = useState('');
+    const [actionLoading, setActionLoading] = useState(false);
 
-    useEffect(() => {
-        fetchCorrections();
-    }, []);
-
-    const fetchCorrections = async () => {
+    const fetchData = useCallback(async () => {
+        setLoading(true);
         try {
-            const response = await api.get('/attendance/corrections/');
-            setCorrections(
-                Array.isArray(response.data)
-                    ? response.data
-                    : response.data.results || []
-            );
-        } catch (error) {
-            console.error('Error fetching corrections:', error);
-            setSnackbar({
-                open: true,
-                message: 'Failed to load correction requests',
-                severity: 'error'
-            });
+            const [oldRes, newRes] = await Promise.all([
+                api.get('/attendance/corrections/').catch(() => ({ data: [] })),
+                api.get('/attendance/correction-requests/').catch(() => ({ data: [] }))
+            ]);
+            
+            const oldData = oldRes?.data?.results || oldRes?.data || [];
+            const newData = newRes?.data?.results || newRes?.data || [];
+            
+            setCorrections(oldData);
+            setNewCorrections(newData);
+        } catch (err) {
+            console.error('Error fetching corrections:', err);
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const handleTabChange = (event, newValue) => {
-        setTabValue(newValue);
-    };
-
-    const handleReviewDialogOpen = (correction, action) => {
-        setSelectedCorrection(correction);
-        setReviewAction(action);
-        setReviewNotes('');
-        setReviewDialogOpen(true);
-    };
-
-    const handleReviewDialogClose = () => {
-        setReviewDialogOpen(false);
-        setSelectedCorrection(null);
-        setReviewNotes('');
-    };
-
-    const handleReviewSubmit = async () => {
-        if (!selectedCorrection) return;
-
-        try {
-            const endpoint = reviewAction === 'approve' ? 'approve' : 'reject';
-            await api.post(`/attendance/corrections/${selectedCorrection.id}/${endpoint}/`, {
-                review_notes: reviewNotes
-            });
-
-            setSnackbar({
-                open: true,
-                message: `Correction request ${reviewAction}d successfully`,
-                severity: 'success'
-            });
-
-            handleReviewDialogClose();
-            fetchCorrections();
-        } catch (error) {
-            console.error(`Error ${reviewAction}ing correction:`, error);
-            setSnackbar({
-                open: true,
-                message: `Failed to ${reviewAction} correction request`,
-                severity: 'error'
-            });
-        }
-    };
+    useEffect(() => { fetchData(); }, [fetchData]);
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -124,214 +51,235 @@ const PunchCorrectionManagement = () => {
         }
     };
 
-    const getCorrectionTypeLabel = (type) => {
+    const getTypeColor = (type) => {
         switch (type) {
-            case 'ADD_PUNCH': return 'Add Punch';
-            case 'EDIT_PUNCH': return 'Edit Punch';
-            case 'DELETE_PUNCH': return 'Delete Punch';
-            default: return type;
+            case 'ADD': case 'ADD_PUNCH': return 'success';
+            case 'EDIT': case 'EDIT_PUNCH': return 'primary';
+            case 'DELETE': case 'DELETE_PUNCH': return 'error';
+            default: return 'default';
         }
     };
 
-    const filteredCorrections = corrections.filter(correction => {
-        if (tabValue === 0) return correction.status === 'PENDING';
-        if (tabValue === 1) return correction.status === 'APPROVED';
-        if (tabValue === 2) return correction.status === 'REJECTED';
-        return true;
-    });
+    const counts = useMemo(() => ({
+        old: {
+            pending: corrections.filter(c => c.status === 'PENDING').length,
+            approved: corrections.filter(c => c.status === 'APPROVED').length,
+            rejected: corrections.filter(c => c.status === 'REJECTED').length
+        },
+        new: {
+            pending: newCorrections.filter(c => c.status === 'PENDING').length,
+            approved: newCorrections.filter(c => c.status === 'APPROVED').length,
+            rejected: newCorrections.filter(c => c.status === 'REJECTED').length
+        }
+    }), [corrections, newCorrections]);
+
+    const filteredCorrections = useMemo(() => {
+        let data = [];
+        switch (activeTab) {
+            case 0: data = corrections.filter(c => c.status === 'PENDING'); break;
+            case 1: data = corrections.filter(c => c.status === 'APPROVED'); break;
+            case 2: data = corrections.filter(c => c.status === 'REJECTED'); break;
+            default: data = corrections;
+        }
+        return data;
+    }, [activeTab, corrections]);
+
+    const filteredNewCorrections = useMemo(() => {
+        let data = [];
+        switch (activeTab) {
+            case 0: data = newCorrections.filter(c => c.status === 'PENDING'); break;
+            case 1: data = newCorrections.filter(c => c.status === 'APPROVED'); break;
+            case 2: data = newCorrections.filter(c => c.status === 'REJECTED'); break;
+            default: data = newCorrections;
+        }
+        return data;
+    }, [activeTab, newCorrections]);
+
+    const handleAction = async (type, action) => {
+        setActionLoading(true);
+        try {
+            if (type === 'old') {
+                if (action === 'APPROVE') {
+                    await api.post(`/attendance/corrections/${selected.id}/approve/`);
+                } else {
+                    await api.post(`/attendance/corrections/${selected.id}/reject/`, { remarks });
+                }
+            } else {
+                await api.reviewCorrection(selected.id, action, remarks);
+            }
+            setDialogType(null);
+            setSelected(null);
+            setRemarks('');
+            fetchData();
+        } catch (err) {
+            console.error('Error:', err);
+            alert('Action failed');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const renderDetailView = () => {
+        if (!selected) return null;
+        const hasCoords = selected.from_latitude && selected.from_longitude;
+
+        return (
+            <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                    <Card>
+                        <CardContent>
+                            <Typography variant="subtitle2" gutterBottom>Request Details</Typography>
+                            <Divider sx={{ my: 1 }} />
+                            <Typography><strong>Employee:</strong> {selected.employee_name || `${selected.employee_details?.first_name} ${selected.employee_details?.last_name}`}</Typography>
+                            <Typography><strong>Type:</strong> <Chip label={selected.correction_type || selected.correction_type} color={getTypeColor(selected.correction_type)} size="small" /></Typography>
+                            <Typography><strong>Date:</strong> {selected.correction_date || selected.requested_date}</Typography>
+                            <Typography><strong>Time:</strong> {selected.correction_time || selected.requested_time}</Typography>
+                            <Typography><strong>Punch Type:</strong> {selected.punch_type || selected.requested_punch_type}</Typography>
+                            <Typography><strong>Distance:</strong> {selected.calculated_distance || selected.distance || 0} km</Typography>
+                            <Typography sx={{ mt: 1 }}><strong>Reason:</strong> {selected.reason}</Typography>
+                            {selected.review_comment && (
+                                <Typography sx={{ mt: 1, color: 'success.main' }}><strong>Admin Comment:</strong> {selected.review_comment}</Typography>
+                            )}
+                        </CardContent>
+                    </Card>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                    <Card sx={{ height: '100%' }}>
+                        <CardContent>
+                            <Typography variant="subtitle2" gutterBottom>Location Preview</Typography>
+                            <Divider sx={{ my: 1 }} />
+                            {hasCoords ? (
+                                <Box sx={{ height: 200, borderRadius: 1, overflow: 'hidden' }}>
+                                    <MapContainer center={[selected.from_latitude, selected.from_longitude]} zoom={14} style={{ height: '100%', width: '100%' }}>
+                                        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                                        <Marker position={[selected.from_latitude, selected.from_longitude]}>
+                                            <Popup>From: {selected.from_address}</Popup>
+                                        </Marker>
+                                        {selected.to_latitude && (
+                                            <>
+                                                <Marker position={[selected.to_latitude, selected.to_longitude]}>
+                                                    <Popup>To: {selected.to_address}</Popup>
+                                                </Marker>
+                                                <Polyline positions={[[selected.from_latitude, selected.from_longitude], [selected.to_latitude, selected.to_longitude]]} color="blue" />
+                                            </>
+                                        )}
+                                    </MapContainer>
+                                </Box>
+                            ) : (
+                                <Typography color="text.secondary">No map data available</Typography>
+                            )}
+                        </CardContent>
+                    </Card>
+                </Grid>
+            </Grid>
+        );
+    };
 
     if (loading) {
-        return (
-            <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-                <Typography>Loading...</Typography>
-            </Container>
-        );
+        return <Box sx={{ p: 3 }}><Typography variant="h5" mb={3}>Punch Corrections</Typography><TableSkeleton rows={6} columns={6} /></Box>;
     }
 
     return (
-        <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-            <Typography variant="h4" component="h1" gutterBottom>
-                Punch Correction Management
-            </Typography>
+        <Box sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Box>
+                    <Typography variant="h5" fontWeight="bold">Punch Corrections</Typography>
+                    <Typography variant="caption" color="text.secondary">Review and manage employee correction requests</Typography>
+                </Box>
+                <Button variant="outlined" startIcon={<RefreshIcon />} onClick={fetchData}>Refresh</Button>
+            </Box>
 
-            <Paper sx={{ mb: 3 }}>
-                <Tabs value={tabValue} onChange={handleTabChange} aria-label="correction status tabs">
-                    <Tab label={`Pending (${corrections.filter(c => c.status === 'PENDING').length})`} />
-                    <Tab label={`Approved (${corrections.filter(c => c.status === 'APPROVED').length})`} />
-                    <Tab label={`Rejected (${corrections.filter(c => c.status === 'REJECTED').length})`} />
-                </Tabs>
-            </Paper>
+            <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)} sx={{ mb: 2 }}>
+                <Tab label={<Chip label={`Pending (${counts.old.pending + counts.new.pending})`} color="warning" size="small" />} />
+                <Tab label={<Chip label={`Approved (${counts.old.approved + counts.new.approved})`} color="success" size="small" />} />
+                <Tab label={<Chip label={`Rejected (${counts.old.rejected + counts.new.rejected})`} color="error" size="small" />} />
+            </Tabs>
 
             <TableContainer component={Paper}>
-                <Table>
+                <Table size="small">
                     <TableHead>
-                        <TableRow>
-                            <TableCell>Employee</TableCell>
-                            <TableCell>Type</TableCell>
-                            <TableCell>Requested Date</TableCell>
-                            <TableCell>Requested Time</TableCell>
-                            <TableCell>Punch Type</TableCell>
-                            <TableCell>Reason</TableCell>
-                            <TableCell>Status</TableCell>
-                            <TableCell>Submitted</TableCell>
-                            <TableCell>Actions</TableCell>
+                        <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                            <TableCell><strong>Employee</strong></TableCell>
+                            <TableCell><strong>Type</strong></TableCell>
+                            <TableCell><strong>Date</strong></TableCell>
+                            <TableCell><strong>Distance</strong></TableCell>
+                            <TableCell><strong>Status</strong></TableCell>
+                            <TableCell><strong>Actions</strong></TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {filteredCorrections.map((correction) => (
-                            <TableRow key={correction.id}>
-                                <TableCell>
-                                    {correction.employee_details.employee_id} - {correction.employee_details.first_name} {correction.employee_details.last_name}
-                                </TableCell>
-                                <TableCell>{getCorrectionTypeLabel(correction.correction_type)}</TableCell>
-                                <TableCell>{correction.requested_date}</TableCell>
-                                <TableCell>{correction.requested_time}</TableCell>
-                                <TableCell>{correction.requested_punch_type}</TableCell>
-                                <TableCell sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {correction.reason}
-                                </TableCell>
-                                <TableCell>
-                                    <Chip
-                                        label={correction.status}
-                                        color={getStatusColor(correction.status)}
-                                        size="small"
-                                    />
-                                </TableCell>
-                                <TableCell>
-                                    {new Date(correction.created_at).toLocaleDateString()}
-                                </TableCell>
-                                <TableCell>
-                                    {correction.status === 'PENDING' && (
-                                        <Box>
-                                            <Tooltip title="Approve">
-                                                <IconButton
-                                                    size="small"
-                                                    color="success"
-                                                    onClick={() => handleReviewDialogOpen(correction, 'approve')}
-                                                >
-                                                    <ApproveIcon />
-                                                </IconButton>
-                                            </Tooltip>
-                                            <Tooltip title="Reject">
-                                                <IconButton
-                                                    size="small"
-                                                    color="error"
-                                                    onClick={() => handleReviewDialogOpen(correction, 'reject')}
-                                                >
-                                                    <RejectIcon />
-                                                </IconButton>
-                                            </Tooltip>
-                                        </Box>
-                                    )}
-                                    {correction.status !== 'PENDING' && (
-                                        <Tooltip title="View Details">
-                                            <IconButton
-                                                size="small"
-                                                onClick={() => setSelectedCorrection(correction)}
-                                            >
-                                                <ViewIcon />
-                                            </IconButton>
-                                        </Tooltip>
-                                    )}
-                                </TableCell>
-                            </TableRow>
-                        ))}
+                        {filteredCorrections.length === 0 && filteredNewCorrections.length === 0 ? (
+                            <TableRow><TableCell colSpan={6} sx={{ textAlign: 'center', py: 4 }}>No {activeTab === 0 ? 'pending' : activeTab === 1 ? 'approved' : 'rejected'} corrections</TableCell></TableRow>
+                        ) : (
+                            <>
+                                {filteredCorrections.map((corr) => (
+                                    <TableRow key={`old-${corr.id}`} hover>
+                                        <TableCell>{corr.employee_details?.first_name} {corr.employee_details?.last_name}</TableCell>
+                                        <TableCell><Chip label={corr.correction_type} color={getTypeColor(corr.correction_type)} size="small" /></TableCell>
+                                        <TableCell>{corr.requested_date}</TableCell>
+                                        <TableCell>{corr.distance ? `${corr.distance} km` : '-'}</TableCell>
+                                        <TableCell><Chip label={corr.status} color={getStatusColor(corr.status)} size="small" /></TableCell>
+                                        <TableCell>
+                                            <Stack direction="row" spacing={0.5}>
+                                                <Tooltip title="View"><IconButton size="small" onClick={() => { setSelected({ ...corr, type: 'old' }); setDialogType('view'); }}><ViewIcon /></IconButton></Tooltip>
+                                                {corr.status === 'PENDING' && (
+                                                    <>
+                                                        <Tooltip title="Approve"><IconButton size="small" color="success" onClick={() => { setSelected({ ...corr, type: 'old' }); setDialogType('approve'); }}><ApproveIcon /></IconButton></Tooltip>
+                                                        <Tooltip title="Reject"><IconButton size="small" color="error" onClick={() => { setSelected({ ...corr, type: 'old' }); setDialogType('reject'); }}><RejectIcon /></IconButton></Tooltip>
+                                                    </>
+                                                )}
+                                            </Stack>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                {filteredNewCorrections.map((corr) => (
+                                    <TableRow key={`new-${corr.id}`} hover>
+                                        <TableCell>{corr.employee_name}</TableCell>
+                                        <TableCell><Chip label={corr.correction_type} color={getTypeColor(corr.correction_type)} size="small" /></TableCell>
+                                        <TableCell>{corr.correction_date}</TableCell>
+                                        <TableCell>{corr.calculated_distance ? `${corr.calculated_distance} km` : '-'}</TableCell>
+                                        <TableCell><Chip label={corr.status} color={getStatusColor(corr.status)} size="small" /></TableCell>
+                                        <TableCell>
+                                            <Stack direction="row" spacing={0.5}>
+                                                <Tooltip title="View"><IconButton size="small" onClick={() => { setSelected({ ...corr, type: 'new' }); setDialogType('view'); }}><ViewIcon /></IconButton></Tooltip>
+                                                {corr.status === 'PENDING' && (
+                                                    <>
+                                                        <Tooltip title="Approve"><IconButton size="small" color="success" onClick={() => { setSelected({ ...corr, type: 'new' }); setDialogType('approve'); }}><ApproveIcon /></IconButton></Tooltip>
+                                                        <Tooltip title="Reject"><IconButton size="small" color="error" onClick={() => { setSelected({ ...corr, type: 'new' }); setDialogType('reject'); }}><RejectIcon /></IconButton></Tooltip>
+                                                    </>
+                                                )}
+                                            </Stack>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </>
+                        )}
                     </TableBody>
                 </Table>
             </TableContainer>
 
-            {/* Review Dialog */}
-            <Dialog open={reviewDialogOpen} onClose={handleReviewDialogClose} maxWidth="md" fullWidth>
-                <DialogTitle>
-                    {reviewAction === 'approve' ? 'Approve' : 'Reject'} Correction Request
-                </DialogTitle>
-                <DialogContent>
-                    {selectedCorrection && (
-                        <Box sx={{ pt: 2 }}>
-                            <Typography variant="h6" gutterBottom>
-                                Request Details
-                            </Typography>
-                            <Typography><strong>Employee:</strong> {selectedCorrection.employee_details.employee_id} - {selectedCorrection.employee_details.first_name} {selectedCorrection.employee_details.last_name}</Typography>
-                            <Typography><strong>Type:</strong> {getCorrectionTypeLabel(selectedCorrection.correction_type)}</Typography>
-                            <Typography><strong>Requested:</strong> {selectedCorrection.requested_date} at {selectedCorrection.requested_time}</Typography>
-                            <Typography><strong>Punch Type:</strong> {selectedCorrection.requested_punch_type}</Typography>
-                            <Typography sx={{ mb: 2 }}><strong>Reason:</strong> {selectedCorrection.reason}</Typography>
+            <Dialog open={dialogType === 'view'} onClose={() => { setDialogType(null); setSelected(null); }} maxWidth="md" fullWidth>
+                <DialogTitle>Correction Details</DialogTitle>
+                <DialogContent>{renderDetailView()}</DialogContent>
+                <DialogActions>
+                    <Button onClick={() => { setDialogType(null); setSelected(null); }}>Close</Button>
+                </DialogActions>
+            </Dialog>
 
-                            <TextField
-                                fullWidth
-                                multiline
-                                rows={3}
-                                label="Review Notes"
-                                value={reviewNotes}
-                                onChange={(e) => setReviewNotes(e.target.value)}
-                                placeholder={`Add notes for ${reviewAction === 'approve' ? 'approval' : 'rejection'}...`}
-                            />
-                        </Box>
-                    )}
+            <Dialog open={dialogType === 'approve' || dialogType === 'reject'} onClose={() => { setDialogType(null); setSelected(null); setRemarks(''); }} maxWidth="sm" fullWidth>
+                <DialogTitle>{dialogType === 'approve' ? 'Approve' : 'Reject'} Correction</DialogTitle>
+                <DialogContent>
+                    <Typography sx={{ mb: 2 }}>Are you sure you want to {dialogType} this correction request?</Typography>
+                    <TextField fullWidth multiline rows={3} label="Remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Add remarks..." />
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleReviewDialogClose}>Cancel</Button>
-                    <Button
-                        onClick={handleReviewSubmit}
-                        variant="contained"
-                        color={reviewAction === 'approve' ? 'success' : 'error'}
-                    >
-                        {reviewAction === 'approve' ? 'Approve' : 'Reject'}
+                    <Button onClick={() => { setDialogType(null); setSelected(null); setRemarks(''); }}>Cancel</Button>
+                    <Button variant="contained" color={dialogType === 'approve' ? 'success' : 'error'} onClick={() => handleAction(selected?.type, dialogType === 'approve' ? 'APPROVE' : 'REJECT')} disabled={actionLoading}>
+                        {actionLoading ? <CircularProgress size={20} /> : dialogType === 'approve' ? 'Approve' : 'Reject'}
                     </Button>
                 </DialogActions>
             </Dialog>
-
-            {/* Details Dialog for approved/rejected requests */}
-            <Dialog
-                open={!!selectedCorrection && !reviewDialogOpen}
-                onClose={() => setSelectedCorrection(null)}
-                maxWidth="md"
-                fullWidth
-            >
-                <DialogTitle>Correction Request Details</DialogTitle>
-                <DialogContent>
-                    {selectedCorrection && (
-                        <Box sx={{ pt: 2 }}>
-                            <Typography variant="h6" gutterBottom>Request Information</Typography>
-                            <Typography><strong>Employee:</strong> {selectedCorrection.employee_details.employee_id} - {selectedCorrection.employee_details.first_name} {selectedCorrection.employee_details.last_name}</Typography>
-                            <Typography><strong>Type:</strong> {getCorrectionTypeLabel(selectedCorrection.correction_type)}</Typography>
-                            <Typography><strong>Requested:</strong> {selectedCorrection.requested_date} at {selectedCorrection.requested_time}</Typography>
-                            <Typography><strong>Punch Type:</strong> {selectedCorrection.requested_punch_type}</Typography>
-                            <Typography sx={{ mb: 2 }}><strong>Reason:</strong> {selectedCorrection.reason}</Typography>
-
-                            <Typography variant="h6" gutterBottom>Review Information</Typography>
-                            <Typography><strong>Status:</strong> <Chip label={selectedCorrection.status} color={getStatusColor(selectedCorrection.status)} size="small" /></Typography>
-                            {selectedCorrection.reviewed_by_details && (
-                                <Typography><strong>Reviewed By:</strong> {selectedCorrection.reviewed_by_details.employee_id} - {selectedCorrection.reviewed_by_details.first_name} {selectedCorrection.reviewed_by_details.last_name}</Typography>
-                            )}
-                            {selectedCorrection.reviewed_at && (
-                                <Typography><strong>Reviewed At:</strong> {new Date(selectedCorrection.reviewed_at).toLocaleString()}</Typography>
-                            )}
-                            {selectedCorrection.review_notes && (
-                                <Typography><strong>Review Notes:</strong> {selectedCorrection.review_notes}</Typography>
-                            )}
-                        </Box>
-                    )}
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setSelectedCorrection(null)}>Close</Button>
-                </DialogActions>
-            </Dialog>
-
-            <Snackbar
-                open={snackbar.open}
-                autoHideDuration={6000}
-                onClose={() => setSnackbar({ ...snackbar, open: false })}
-            >
-                <Alert
-                    onClose={() => setSnackbar({ ...snackbar, open: false })}
-                    severity={snackbar.severity}
-                    sx={{ width: '100%' }}
-                >
-                    {snackbar.message}
-                </Alert>
-            </Snackbar>
-        </Container>
+        </Box>
     );
 };
 
