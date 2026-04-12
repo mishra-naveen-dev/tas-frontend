@@ -1,28 +1,18 @@
-import axios from 'axios';
+import { RetryHandler, RateLimiter, OfflineQueue, RequestCache } from './ApiUtils';
 
 const BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
 const API_V1 = `${BASE_URL}/api/v1`;
 const AUTH_URL = `${API_V1}/auth`;
 
-const IS_DEV = process.env.NODE_ENV === 'development';
-const IS_DEBUG = process.env.REACT_APP_DEBUG === 'true';
-const CACHE_DURATION = parseInt(process.env.REACT_APP_CACHE_DURATION || '30000', 10);
-
-const cache = new Map();
-
-const getAccessToken = () => sessionStorage.getItem('access_token');
-const getRefreshToken = () => sessionStorage.getItem('refresh_token');
+const CACHE = new RequestCache();
+const OFFLINE_QUEUE = new OfflineQueue();
+const RATE_LIMITER = new RateLimiter(100, 60000);
 
 let isRefreshing = false;
 let failedQueue = [];
 
-const processQueue = (error, token = null) => {
-    failedQueue.forEach(prom => {
-        if (error) prom.reject(error);
-        else prom.resolve(token);
-    });
-    failedQueue = [];
-};
+const getAccessToken = () => sessionStorage.getItem('access_token');
+const getRefreshToken = () => sessionStorage.getItem('refresh_token');
 
 const getDeviceId = () => {
     let deviceId = localStorage.getItem('device_id');
@@ -33,54 +23,29 @@ const getDeviceId = () => {
     return deviceId;
 };
 
-class CacheManager {
-    static set(key, data) {
-        cache.set(key, { data, timestamp: Date.now() });
-        if (cache.size > 100) {
-            const firstKey = cache.keys().next().value;
-            cache.delete(firstKey);
-        }
-    }
+const processQueue = (error, token = null) => {
+    failedQueue.forEach(prom => {
+        if (error) prom.reject(error);
+        else prom.resolve(token);
+    });
+    failedQueue = [];
+};
 
-    static get(key) {
-        const entry = cache.get(key);
-        if (!entry) return null;
-        
-        if (Date.now() - entry.timestamp > CACHE_DURATION) {
-            cache.delete(key);
-            return null;
-        }
-        
-        return entry.data;
-    }
-
-    static invalidate(key) {
-        if (key) {
-            cache.delete(key);
-        } else {
-            cache.clear();
-        }
-    }
-
-    static invalidatePrefix(prefix) {
-        for (const key of cache.keys()) {
-            if (key.startsWith(prefix)) {
-                cache.delete(key);
-            }
-        }
-    }
-}
-
-class APIService {
-
+class ScalableAPI {
     constructor() {
-        this.api = axios.create({
+        this.api = window.axios.create({
             baseURL: API_V1,
-            timeout: 20000,
+            timeout: 30000,
             headers: { 'Content-Type': 'application/json' }
         });
 
-        this.api.interceptors.request.use((config) => {
+        this.setupInterceptors();
+    }
+
+    setupInterceptors() {
+        this.api.interceptors.request.use(async (config) => {
+            await RATE_LIMITER.acquire();
+            
             const token = getAccessToken();
             if (token && !config.url.includes('/auth/token')) {
                 config.headers.Authorization = `Bearer ${token}`;
@@ -99,7 +64,15 @@ class APIService {
                 const originalRequest = error.config;
 
                 if (!error.response) {
-                    return Promise.reject(error);
+                    if (error.request && !navigator.onLine) {
+                        OFFLINE_QUEUE.add({
+                            url: originalRequest.url,
+                            method: originalRequest.method,
+                            data: originalRequest.data,
+                            params: originalRequest.params
+                        });
+                    }
+                    return Promise.reject({ ...error, offline: true });
                 }
 
                 if (originalRequest.url.includes('/auth/token/refresh/')) {
@@ -128,7 +101,7 @@ class APIService {
                     isRefreshing = true;
 
                     try {
-                        const res = await axios.post(`${AUTH_URL}/token/refresh/`, { refresh });
+                        const res = await window.axios.post(`${AUTH_URL}/token/refresh/`, { refresh });
                         const newAccess = res.data.access;
 
                         sessionStorage.setItem('access_token', newAccess);
@@ -161,55 +134,102 @@ class APIService {
     }
 
     static getInstance() {
-        if (!APIService.instance) {
-            APIService.instance = new APIService();
+        if (!ScalableAPI.instance) {
+            ScalableAPI.instance = new ScalableAPI();
         }
-        return APIService.instance;
+        return ScalableAPI.instance;
     }
 
-    async get(url, params = {}, useCache = false) {
-        const key = `${url}_${JSON.stringify(params)}`;
+    async get(url, params = {}, options = {}) {
+        const { useCache = false, retry = true } = options;
+        const cacheKey = `${url}_${JSON.stringify(params)}`;
 
         if (useCache) {
-            const cached = CacheManager.get(key);
+            const cached = CACHE.get(cacheKey);
             if (cached) {
-                return { data: cached };
+                return { data: cached, cached: true };
             }
         }
 
-        const res = await this.api.get(url, { params });
+        const request = async () => {
+            const res = await this.api.get(url, { params });
+            if (useCache) {
+                CACHE.set(cacheKey, res.data);
+            }
+            return res;
+        };
 
-        if (useCache) {
-            CacheManager.set(key, res.data);
+        if (retry) {
+            return RetryHandler.withRetry(request);
+        }
+        return request();
+    }
+
+    async post(url, data = {}, options = {}) {
+        const { retry = false, offline = false } = options;
+
+        const request = async () => {
+            const res = await this.api.post(url, data);
+            this.invalidateCache(url);
+            return res;
+        };
+
+        if (offline && !navigator.onLine) {
+            OFFLINE_QUEUE.add({ url, method: 'POST', data, params: {} });
+            return { data: { queued: true }, offline: true };
         }
 
-        return res;
+        if (retry) {
+            return RetryHandler.withRetry(request);
+        }
+        return request();
     }
 
-    async post(url, data = {}) {
-        return this.api.post(url, data);
-    }
+    async patch(url, data = {}, options = {}) {
+        const { retry = false } = options;
 
-    async patch(url, data = {}) {
-        return this.api.patch(url, data);
+        const request = async () => {
+            const res = await this.api.patch(url, data);
+            this.invalidateCache(url);
+            return res;
+        };
+
+        if (retry) {
+            return RetryHandler.withRetry(request);
+        }
+        return request();
     }
 
     async put(url, data = {}) {
-        return this.api.put(url, data);
+        const res = await this.api.put(url, data);
+        this.invalidateCache(url);
+        return res;
     }
 
     async delete(url) {
-        return this.api.delete(url);
+        const res = await this.api.delete(url);
+        this.invalidateCache(url);
+        return res;
     }
 
     invalidateCache(prefix = null) {
-        CacheManager.invalidatePrefix(prefix || '');
+        if (prefix) {
+            CACHE.invalidatePrefix(prefix);
+        } else {
+            CACHE.invalidate();
+        }
+    }
+
+    async processOfflineQueue() {
+        if (navigator.onLine && OFFLINE_QUEUE.length > 0) {
+            await OFFLINE_QUEUE.process(this);
+        }
     }
 
     async login(username, password) {
         const deviceId = getDeviceId();
         
-        const res = await axios.post(`${AUTH_URL}/token/`, { username, password }, {
+        const res = await window.axios.post(`${AUTH_URL}/token/`, { username, password }, {
             headers: {
                 'X-DEVICE-ID': deviceId,
                 'X-PLATFORM': 'WEB',
@@ -230,7 +250,7 @@ class APIService {
             sessionStorage.setItem('device_info', JSON.stringify(data.device));
         }
 
-        CacheManager.invalidate();
+        CACHE.invalidate();
 
         return data;
     }
@@ -241,7 +261,7 @@ class APIService {
         sessionStorage.removeItem('user');
         sessionStorage.removeItem('device_id');
         sessionStorage.removeItem('device_info');
-        CacheManager.invalidate();
+        CACHE.invalidate();
         window.location.replace('/#/login');
     }
 
@@ -258,17 +278,14 @@ class APIService {
     }
 
     createUser(data) {
-        this.invalidateCache('/organization/users/');
         return this.post('/organization/users/', data);
     }
 
     updateUser(id, data) {
-        this.invalidateCache('/organization/users/');
         return this.patch(`/organization/users/${id}/`, data);
     }
 
     deleteUser(id) {
-        this.invalidateCache('/organization/users/');
         return this.post(`/organization/users/${id}/soft_delete/`);
     }
 
@@ -281,8 +298,7 @@ class APIService {
     }
 
     createPunchRecord(data) {
-        this.invalidateCache('/attendance/punches/');
-        return this.post('/attendance/punches/', data);
+        return this.post('/attendance/punches/', data, { offline: true });
     }
 
     getDailySummary() {
@@ -302,7 +318,6 @@ class APIService {
     }
 
     createCorrection(data) {
-        this.invalidateCache('/attendance/corrections/');
         return this.post('/attendance/corrections/', data);
     }
 
@@ -319,7 +334,6 @@ class APIService {
     }
 
     createAllowanceRequest(data) {
-        this.invalidateCache('/allowance/requests/');
         return this.post('/allowance/requests/', data);
     }
 
@@ -328,7 +342,6 @@ class APIService {
     }
 
     approveAllowanceRequest(id) {
-        this.invalidateCache('/allowance/requests/');
         return this.post(`/allowance/requests/${id}/approve/`);
     }
 
@@ -337,7 +350,6 @@ class APIService {
     }
 
     rejectAllowanceRequest(id, data) {
-        this.invalidateCache('/allowance/requests/');
         return this.post(`/allowance/requests/${id}/reject/`, data);
     }
 
@@ -350,29 +362,27 @@ class APIService {
     }
 
     approveProfileRequest(id, data = {}) {
-        this.invalidateCache('/organization/profile-update/');
         return this.post(`/organization/profile-update/${id}/approve/`, data);
     }
 
     rejectProfileRequest(id, data = {}) {
-        this.invalidateCache('/organization/profile-update/');
         return this.post(`/organization/profile-update/${id}/reject/`, data);
     }
 
     getRoles() {
-        return this.get('/organization/roles/', {}, true);
+        return this.get('/organization/roles/', {}, { useCache: true });
     }
 
     getStates() {
-        return this.get('/organization/states/', {}, true);
+        return this.get('/organization/states/', {}, { useCache: true });
     }
 
     getBranches(state) {
-        return this.get('/organization/branches/', { state }, true);
+        return this.get('/organization/branches/', { state }, { useCache: true });
     }
 
     getAreas(branch) {
-        return this.get('/organization/areas/', { branch }, true);
+        return this.get('/organization/areas/', { branch }, { useCache: true });
     }
 
     getMyDevices() {
@@ -428,17 +438,15 @@ class APIService {
     }
 
     createCorrectionRequest(data) {
-        this.invalidateCache('/attendance/correction-requests/');
         return this.post('/attendance/correction-requests/', data);
     }
 
     reviewCorrection(correctionId, action, comment = '') {
-        this.invalidateCache('/attendance/correction-requests/');
         return this.post(`/attendance/correction-requests/${correctionId}/review/`, { action, comment });
     }
 
     getCorrectionSettings() {
-        return this.get('/attendance/correction-settings/', {}, true);
+        return this.get('/attendance/correction-settings/', {}, { useCache: true });
     }
 
     updateCorrectionSettings(data) {
@@ -454,17 +462,14 @@ class APIService {
     }
 
     createApprovalHierarchy(data) {
-        this.invalidateCache('/organization/approval-hierarchies/');
         return this.post('/organization/approval-hierarchies/', data);
     }
 
     updateApprovalHierarchy(id, data) {
-        this.invalidateCache('/organization/approval-hierarchies/');
         return this.patch(`/organization/approval-hierarchies/${id}/`, data);
     }
 
     deleteApprovalHierarchy(id) {
-        this.invalidateCache('/organization/approval-hierarchies/');
         return this.delete(`/organization/approval-hierarchies/${id}/`);
     }
 
@@ -477,7 +482,6 @@ class APIService {
     }
 
     processApprovalRoute(routeId, action, comments = '') {
-        this.invalidateCache('/organization/approval-routes/');
         return this.post(`/organization/approval-routes/${routeId}/process/`, { action, comments });
     }
 
@@ -502,4 +506,11 @@ class APIService {
     }
 }
 
-export default APIService.getInstance();
+if (typeof window !== 'undefined') {
+    window.addEventListener('online', () => {
+        const api = ScalableAPI.getInstance();
+        api.processOfflineQueue();
+    });
+}
+
+export default ScalableAPI.getInstance();
