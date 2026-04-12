@@ -39,6 +39,7 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
         correction_time: '',
         punch_type: 'PUNCH_IN',
         from_address: '',
+        pincode: '',
         to_address: '',
         reason: '',
     });
@@ -56,6 +57,7 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                 correction_time: new Date(editPunch.punched_at).toTimeString().slice(0, 5),
                 punch_type: editPunch.punch_type,
                 from_address: `Lat: ${editPunch.latitude}, Lng: ${editPunch.longitude}`,
+                pincode: editPunch.pincode || '',
                 reason: '',
             }));
         } else {
@@ -66,6 +68,7 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                 correction_time: '',
                 punch_type: 'PUNCH_IN',
                 from_address: '',
+                pincode: '',
                 to_address: '',
                 reason: '',
             });
@@ -81,8 +84,13 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
         setError('');
         setSuccess('');
 
-        if (!form.correction_date || !form.correction_time || !form.from_address || !form.reason) {
+        if (!form.correction_date || !form.correction_time || !form.from_address || !form.pincode || !form.reason) {
             setError('All fields are required');
+            return;
+        }
+
+        if (!/^\d{6}$/.test(form.pincode)) {
+            setError('Pincode must be 6 digits');
             return;
         }
 
@@ -90,6 +98,7 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
         try {
             const payload = {
                 ...form,
+                pincode: form.pincode,
                 original_punch_id: form.original_punch_id ? parseInt(form.original_punch_id) : null,
             };
             await api.createCorrectionRequest(payload);
@@ -100,7 +109,11 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
             }, 2000);
         } catch (err) {
             const errData = err.response?.data;
-            setError(errData?.error || errData?.detail || 'Failed to submit correction request');
+            let errMsg = errData?.error;
+            if (typeof errMsg === 'object' && errMsg !== null) {
+                errMsg = Object.entries(errMsg).map(([k, v]) => `${k}: ${v}`).join(', ');
+            }
+            setError(errMsg || errData?.detail || 'Failed to submit correction request');
         } finally {
             setLoading(false);
         }
@@ -188,6 +201,21 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                             InputProps={{
                                 startAdornment: <PlaceIcon sx={{ mr: 1, color: 'action.active' }} />,
                             }}
+                        />
+                    </Grid>
+
+                    <Grid item xs={12} sm={6}>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            label="Pincode *"
+                            name="pincode"
+                            value={form.pincode}
+                            onChange={handleChange}
+                            placeholder="6-digit pincode"
+                            inputProps={{ maxLength: 6 }}
+                            error={form.pincode.length > 0 && !/^\d{6}$/.test(form.pincode)}
+                            helperText={form.pincode.length > 0 && !/^\d{6}$/.test(form.pincode) ? 'Enter 6 digit pincode' : ''}
                         />
                     </Grid>
 
