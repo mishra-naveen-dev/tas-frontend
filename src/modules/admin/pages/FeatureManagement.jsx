@@ -41,6 +41,7 @@ const FeatureManagement = () => {
 
     useEffect(() => {
         loadInitialData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const loadInitialData = async () => {
@@ -59,7 +60,9 @@ const FeatureManagement = () => {
             setAllFeatures(features);
 
             if (adminRoles.length > 0) {
-                setSelectedRole(adminRoles[0].id);
+                const firstRoleId = adminRoles[0].id;
+                setSelectedRole(firstRoleId);
+                loadRoleFeatures(firstRoleId);
             }
         } catch (err) {
             console.error('Error loading data:', err);
@@ -72,11 +75,6 @@ const FeatureManagement = () => {
             setLoading(false);
         }
     };
-
-    useEffect(() => {
-        if (!selectedRole) return;
-        loadRoleFeatures(selectedRole);
-    }, [selectedRole]);
 
     const loadRoleFeatures = async (roleId) => {
         setLoading(true);
@@ -93,7 +91,7 @@ const FeatureManagement = () => {
             console.error('Error fetching role features:', err);
             setSnackbar({
                 open: true,
-                message: 'Error loading features.',
+                message: 'Error loading features: ' + (err?.message || 'Unknown error'),
                 severity: 'error'
             });
         } finally {
@@ -102,7 +100,9 @@ const FeatureManagement = () => {
     };
 
     const handleRoleChange = (e) => {
-        setSelectedRole(e.target.value);
+        const newRoleId = e.target.value;
+        setSelectedRole(newRoleId);
+        loadRoleFeatures(newRoleId);
     };
 
     const handleToggle = (featureId) => {
@@ -177,10 +177,18 @@ const FeatureManagement = () => {
     const totalFeatures = allFeatures.length;
     const enabledFeatures = Object.values(roleFeatures).filter(v => v).length;
 
-    if (loading && allFeatures.length === 0) {
+    if (loading) {
         return (
-            <Box sx={{ p: 3, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-                <CircularProgress />
+            <Box sx={{ p: 3 }}>
+                <Typography variant="h5" fontWeight="bold" mb={3}>Feature Management</Typography>
+                <Card sx={{ mb: 3 }}>
+                    <CardContent>
+                        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                            <CircularProgress size={24} />
+                            <Typography>Loading data...</Typography>
+                        </Box>
+                    </CardContent>
+                </Card>
             </Box>
         );
     }
@@ -381,12 +389,18 @@ const FeatureManagement = () => {
 
             <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="caption" color="text.secondary">
-                    Total: {totalFeatures} features | Role: {selectedRoleName}
+                    Total: {totalFeatures} features | Enabled: {enabledFeatures} | Role: {selectedRoleName}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                    Features are fetched automatically from the database
+                    Role ID: {selectedRole || 'None'} | Features loaded: {allFeatures.length > 0 ? 'Yes' : 'No'}
                 </Typography>
             </Box>
+
+            {allFeatures.length === 0 && (
+                <Alert severity="warning" sx={{ mt: 2 }}>
+                    No features found. Please run the seed_features command on the backend: <code>python manage.py seed_features</code>
+                </Alert>
+            )}
 
             <Snackbar
                 open={snackbar.open}
