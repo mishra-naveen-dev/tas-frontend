@@ -114,10 +114,19 @@ export const AuthProvider = ({ children }) => {
                 };
             }
 
-            if (errorCode === 'DEVICE_BLOCKED' || errorCode === 'NEW_DEVICE_NOT_ALLOWED') {
+            if (errorCode === 'DEVICE_OWNED_BY_ANOTHER_USER') {
                 return {
                     success: false,
-                    message: "New devices are not allowed. Please use your registered device.",
+                    message: "This device is registered to another user. Please use your own device.",
+                    code: errorCode,
+                    device_blocked: true
+                };
+            }
+
+            if (errorCode === 'DEVICE_BLOCKED') {
+                return {
+                    success: false,
+                    message: "This device has been blocked. Please contact your administrator.",
                     code: errorCode,
                     device_blocked: true
                 };
