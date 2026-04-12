@@ -532,6 +532,29 @@ class ScalableAPI {
             features: featureIds
         });
     }
+
+    getUserFeaturesByUser(userId) {
+        return this.get('/organization/user-features/by_user/', { user_id: userId });
+    }
+
+    getUserFeaturesByRole(roleId) {
+        return this.get('/organization/user-features/by_role/', { role_id: roleId });
+    }
+
+    toggleUserFeature(userId, featureId, isEnabled) {
+        return this.post('/organization/user-features/toggle/', {
+            user_id: userId,
+            feature_id: featureId,
+            is_enabled: isEnabled
+        });
+    }
+
+    bulkUpdateUserFeatures(userId, featureIds) {
+        return this.post('/organization/user-features/bulk_update/', {
+            user: userId,
+            features: featureIds
+        });
+    }
 }
 
 if (typeof window !== 'undefined') {
