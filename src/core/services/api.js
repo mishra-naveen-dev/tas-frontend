@@ -598,6 +598,15 @@ class ScalableAPI {
     logoutApi() {
         return this.post('/auth/logout/');
     }
+
+    // Address Autocomplete
+    getAddressSuggestions(query, limit = 5) {
+        return this.get('/attendance/address/suggestions/', { q: query, limit });
+    }
+
+    getAddressDetails(placeId) {
+        return this.get(`/attendance/address/details/${placeId}/`);
+    }
 }
 
 if (typeof window !== 'undefined') {
