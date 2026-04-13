@@ -38,6 +38,7 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
         correction_date: '',
         correction_time: '',
         punch_type: 'PUNCH_IN',
+        visit_type: 'OFFICE',
         from_address: '',
         pincode: '',
         place_id: '',
@@ -207,6 +208,26 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                         >
                             <MenuItem value="PUNCH_IN">Punch In</MenuItem>
                             <MenuItem value="PUNCH_OUT">Punch Out</MenuItem>
+                        </TextField>
+                    </Grid>
+
+                    <Grid item xs={12} sm={6}>
+                        <TextField
+                            select
+                            fullWidth
+                            size="small"
+                            label="Visit Type"
+                            name="visit_type"
+                            value={form.visit_type}
+                            onChange={handleChange}
+                        >
+                            <MenuItem value="OFFICE">Office Visit</MenuItem>
+                            <MenuItem value="CLIENT">Client Visit</MenuItem>
+                            <MenuItem value="FIELD">Field Visit</MenuItem>
+                            <MenuItem value="MEETING">Meeting</MenuItem>
+                            <MenuItem value="DISBURSEMENT">Disbursement</MenuItem>
+                            <MenuItem value="COLLECTION">Collection</MenuItem>
+                            <MenuItem value="OTHER">Other</MenuItem>
                         </TextField>
                     </Grid>
 
