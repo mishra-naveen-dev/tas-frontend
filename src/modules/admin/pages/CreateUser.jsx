@@ -15,7 +15,7 @@ import {
 import api from 'core/services/api';
 import { useAuth } from 'modules/auth/contexts/AuthContext.jsx';
 import { FormSkeleton } from 'shared/components/SkeletonLoader';
-import { getZones, getStates, getRegions, getBranches, getCenters, getCenter } from '../../utils/stateHelper';
+import { getZones, getStates, getRegions, getBranches, getCenters, getCenter } from 'utils/stateHelper';
 
 const CreateUser = () => {
 
@@ -518,7 +518,16 @@ const CreateUser = () => {
         setLoading(true);
 
         try {
-            await api.createUser(form);
+            const userData = { ...form };
+            
+            if (userData.designation) {
+                const selectedDesig = designations.find(d => d.id === userData.designation || d.id === parseInt(userData.designation));
+                if (selectedDesig) {
+                    userData.designation = selectedDesig.designation_name;
+                }
+            }
+            
+            await api.createUser(userData);
 
             setSuccess("User created successfully. Default password: Temp@123");
 
@@ -552,8 +561,25 @@ const CreateUser = () => {
 
         } catch (err) {
             console.error(err);
-
-            setError(JSON.stringify(err.response?.data, null, 2));
+            
+            const errorData = err.response?.data;
+            let errorMessage = '';
+            
+            if (errorData) {
+                for (const [key, value] of Object.entries(errorData)) {
+                    if (Array.isArray(value)) {
+                        errorMessage += `${key}: ${value.join(', ')}\n`;
+                    } else if (typeof value === 'object') {
+                        errorMessage += `${key}: ${JSON.stringify(value)}\n`;
+                    } else {
+                        errorMessage += `${key}: ${value}\n`;
+                    }
+                }
+            } else {
+                errorMessage = err.message || 'An error occurred';
+            }
+            
+            setError(errorMessage.trim());
         } finally {
             setLoading(false);
         }
