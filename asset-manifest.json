@@ -1,6 +1,6 @@
 {
   "files": {
-    "main.js": "/tas-frontend/static/js/main.e9560cb5.js",
+    "main.js": "/tas-frontend/static/js/main.7c7e79dd.js",
     "static/js/268.eb9062ae.chunk.js": "/tas-frontend/static/js/268.eb9062ae.chunk.js",
     "static/js/311.d1c07ba2.chunk.js": "/tas-frontend/static/js/311.d1c07ba2.chunk.js",
     "static/js/937.9ea9ddb7.chunk.js": "/tas-frontend/static/js/937.9ea9ddb7.chunk.js",
@@ -12,7 +12,7 @@
     "static/js/879.c7d042ff.chunk.js": "/tas-frontend/static/js/879.c7d042ff.chunk.js",
     "static/js/992.e11b67d8.chunk.js": "/tas-frontend/static/js/992.e11b67d8.chunk.js",
     "static/js/847.2b0c076a.chunk.js": "/tas-frontend/static/js/847.2b0c076a.chunk.js",
-    "static/js/522.67279db6.chunk.js": "/tas-frontend/static/js/522.67279db6.chunk.js",
+    "static/js/522.f19f99f6.chunk.js": "/tas-frontend/static/js/522.f19f99f6.chunk.js",
     "static/js/579.55bcca0c.chunk.js": "/tas-frontend/static/js/579.55bcca0c.chunk.js",
     "static/js/781.ea879627.chunk.js": "/tas-frontend/static/js/781.ea879627.chunk.js",
     "static/css/441.cc6979fa.chunk.css": "/tas-frontend/static/css/441.cc6979fa.chunk.css",
@@ -42,7 +42,7 @@
     "static/js/697.b1137935.chunk.js": "/tas-frontend/static/js/697.b1137935.chunk.js",
     "static/js/508.fe75f8b1.chunk.js": "/tas-frontend/static/js/508.fe75f8b1.chunk.js",
     "index.html": "/tas-frontend/index.html",
-    "main.e9560cb5.js.map": "/tas-frontend/static/js/main.e9560cb5.js.map",
+    "main.7c7e79dd.js.map": "/tas-frontend/static/js/main.7c7e79dd.js.map",
     "268.eb9062ae.chunk.js.map": "/tas-frontend/static/js/268.eb9062ae.chunk.js.map",
     "311.d1c07ba2.chunk.js.map": "/tas-frontend/static/js/311.d1c07ba2.chunk.js.map",
     "937.9ea9ddb7.chunk.js.map": "/tas-frontend/static/js/937.9ea9ddb7.chunk.js.map",
@@ -54,7 +54,7 @@
     "879.c7d042ff.chunk.js.map": "/tas-frontend/static/js/879.c7d042ff.chunk.js.map",
     "992.e11b67d8.chunk.js.map": "/tas-frontend/static/js/992.e11b67d8.chunk.js.map",
     "847.2b0c076a.chunk.js.map": "/tas-frontend/static/js/847.2b0c076a.chunk.js.map",
-    "522.67279db6.chunk.js.map": "/tas-frontend/static/js/522.67279db6.chunk.js.map",
+    "522.f19f99f6.chunk.js.map": "/tas-frontend/static/js/522.f19f99f6.chunk.js.map",
     "579.55bcca0c.chunk.js.map": "/tas-frontend/static/js/579.55bcca0c.chunk.js.map",
     "781.ea879627.chunk.js.map": "/tas-frontend/static/js/781.ea879627.chunk.js.map",
     "441.cc6979fa.chunk.css.map": "/tas-frontend/static/css/441.cc6979fa.chunk.css.map",
@@ -85,6 +85,6 @@
     "508.fe75f8b1.chunk.js.map": "/tas-frontend/static/js/508.fe75f8b1.chunk.js.map"
   },
   "entrypoints": [
-    "static/js/main.e9560cb5.js"
+    "static/js/main.7c7e79dd.js"
   ]
 }
