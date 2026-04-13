@@ -21,6 +21,7 @@ import {
     TableHead,
     TableRow,
     Tooltip,
+    IconButton,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -30,7 +31,6 @@ import {
     Delete as DeleteIcon,
     ArrowUpward as ArrowUpIcon,
     ArrowDownward as ArrowDownIcon,
-    IconButton,
 } from '@mui/icons-material';
 import api from 'core/services/api';
 import { TableSkeleton } from 'shared/components/SkeletonLoader';
@@ -162,7 +162,9 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
         
         const updated = [...form.punch_sequence];
         const swapIdx = direction === 'up' ? index - 1 : index + 1;
-        [updated[index], updated[swapIdx] = [updated[swapIdx], updated[index]];
+        const temp = updated[index];
+        updated[index] = updated[swapIdx];
+        updated[swapIdx] = temp;
         updated.forEach((p, i) => p.sequence = i + 1);
         setForm(prev => ({ ...prev, punch_sequence: updated }));
     };
