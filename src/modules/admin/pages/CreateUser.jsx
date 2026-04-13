@@ -520,38 +520,50 @@ const CreateUser = () => {
         try {
             const userData = { ...form };
             
+            console.log('Submitting userData:', userData);
+            console.log('Available designations:', designations);
+            
             if (userData.designation) {
-                const desigId = parseInt(userData.designation) || userData.designation;
-                const selectedDesig = designations.find(d => d.id === desigId || String(d.id) === String(userData.designation));
+                const desigInput = String(userData.designation).trim();
+                const desigNum = parseInt(desigInput);
+                let selectedDesig = designations.find(d => d.id === desigNum || String(d.id) === desigInput);
+                console.log('Looking for designation:', desigInput, 'Found:', selectedDesig);
                 if (selectedDesig) {
                     userData.designation = selectedDesig.designation_name;
+                    console.log('Converted designation to name:', selectedDesig.designation_name);
+                } else if (!isNaN(desigNum)) {
+                    userData.designation = desigInput;
                 }
             }
             
             if (userData.state) {
-                const stateId = parseInt(userData.state) || userData.state;
-                const selectedState = states.find(s => s.id === stateId || String(s.id) === String(userData.state) || s.code === userData.state);
+                const stateInput = String(userData.state).trim();
+                const stateNum = parseInt(stateInput);
+                let selectedState = states.find(s => s.id === stateNum || String(s.id) === stateInput || s.code === stateInput);
                 if (selectedState) {
                     userData.state = selectedState.code || selectedState.id || selectedState.name;
                 }
             }
             
             if (userData.branch) {
-                const branchId = parseInt(userData.branch) || userData.branch;
-                const selectedBranch = branches.find(b => b.id === branchId || String(b.id) === String(userData.branch));
+                const branchInput = String(userData.branch).trim();
+                const branchNum = parseInt(branchInput);
+                let selectedBranch = branches.find(b => b.id === branchNum || String(b.id) === branchInput);
                 if (selectedBranch) {
                     userData.branch = selectedBranch.code || selectedBranch.id || selectedBranch.name;
                 }
             }
             
             if (userData.area) {
-                const areaId = parseInt(userData.area) || userData.area;
-                const selectedArea = areas.find(a => a.id === areaId || String(a.id) === String(userData.area));
+                const areaInput = String(userData.area).trim();
+                const areaNum = parseInt(areaInput);
+                let selectedArea = areas.find(a => a.id === areaNum || String(a.id) === areaInput);
                 if (selectedArea) {
                     userData.area = selectedArea.code || selectedArea.id || selectedArea.name;
                 }
             }
             
+            console.log('Final userData:', userData);
             await api.createUser(userData);
 
             setSuccess("User created successfully. Default password: Temp@123");
