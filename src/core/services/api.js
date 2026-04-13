@@ -607,6 +607,27 @@ class ScalableAPI {
     getAddressDetails(placeId) {
         return this.get(`/attendance/address/details/${placeId}/`);
     }
+
+    // Designation Master
+    getDesignations(params = {}) {
+        return this.get('/organization/designations/', params, { useCache: true });
+    }
+
+    getDesignationsByGrade() {
+        return this.get('/organization/designations/by_grade/', {}, { useCache: true });
+    }
+
+    getDesignationsByDepartment() {
+        return this.get('/organization/designations/by_department/', {}, { useCache: true });
+    }
+
+    getDesignationGrades() {
+        return this.get('/organization/designations/grades/', {}, { useCache: true });
+    }
+
+    getDesignationDepartments() {
+        return this.get('/organization/designations/departments/', {}, { useCache: true });
+    }
 }
 
 if (typeof window !== 'undefined') {
