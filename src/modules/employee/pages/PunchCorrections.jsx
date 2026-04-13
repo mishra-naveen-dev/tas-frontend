@@ -109,7 +109,7 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
             latitude: null,
             longitude: null,
             time: '',
-            punch_type: form.punch_sequence.length === 0 ? 'PUNCH_IN' : 'PUNCH_OUT',
+            punch_type: 'PUNCH_IN',  // System defaults to PUNCH_IN
             visit_type: 'OFFICE'
         };
         setForm(prev => ({
@@ -329,7 +329,7 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                                             <Typography fontWeight="bold" minWidth={30}>{index + 1}.</Typography>
                                             <TextField
                                                 size="small"
-                                                placeholder="Address"
+                                                placeholder="Address or Location"
                                                 value={point.address || ''}
                                                 onChange={(e) => handleUpdatePunchPoint(index, 'address', e.target.value)}
                                                 sx={{ flex: 1 }}
@@ -348,16 +348,7 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                                                 onChange={(e) => handleUpdatePunchPoint(index, 'time', e.target.value)}
                                                 sx={{ width: 120 }}
                                             />
-                                            <TextField
-                                                size="small"
-                                                select
-                                                value={point.punch_type || 'PUNCH_IN'}
-                                                onChange={(e) => handleUpdatePunchPoint(index, 'punch_type', e.target.value)}
-                                                sx={{ width: 100 }}
-                                            >
-                                                <MenuItem value="PUNCH_IN">IN</MenuItem>
-                                                <MenuItem value="PUNCH_OUT">OUT</MenuItem>
-                                            </TextField>
+                                            <Chip label="PUNCH IN" color="success" size="small" />
                                             <IconButton size="small" onClick={() => handleMovePunchPoint(index, 'up')} disabled={index === 0}>
                                                 <ArrowUpIcon />
                                             </IconButton>
