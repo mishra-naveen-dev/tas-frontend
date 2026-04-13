@@ -15,6 +15,7 @@ import {
 import api from 'core/services/api';
 import { useAuth } from 'modules/auth/contexts/AuthContext.jsx';
 import { FormSkeleton } from 'shared/components/SkeletonLoader';
+import { getZones, getStates, getRegions, getBranches, getCenters, getCenter } from '../../utils/stateHelper';
 
 const CreateUser = () => {
 
@@ -50,8 +51,11 @@ const CreateUser = () => {
         designation: '',
         grade_name: '',
         department_name: '',
+        zone: '',
         state: '',
+        region: '',
         branch: '',
+        center: '',
         area: ''
     });
 
@@ -61,8 +65,11 @@ const CreateUser = () => {
     const [designations, setDesignations] = useState([]);
     const [filteredDepartments, setFilteredDepartments] = useState([]);
     const [filteredDesignations, setFilteredDesignations] = useState([]);
+    const [zones, setZones] = useState([]);
     const [states, setStates] = useState([]);
+    const [regions, setRegions] = useState([]);
     const [branches, setBranches] = useState([]);
+    const [centers, setCenters] = useState([]);
     const [areas, setAreas] = useState([]);
 
     const [loading, setLoading] = useState(false);
@@ -79,7 +86,7 @@ const CreateUser = () => {
     const fetchInitialData = async () => {
         setInitialLoading(true);
         setError('');
-        
+
         const FALLBACK_DESIGNATIONS = [
             { id: 1, grade_name: 'Asst. Manager', designation_name: 'BRANCH ACCOUNTANT', department_name: 'OPERATIONS' },
             { id: 2, grade_name: 'Manager', designation_name: 'RO 1', department_name: 'Collection' },
@@ -349,36 +356,39 @@ const CreateUser = () => {
             let desigsRes = { data: [] };
             let statesRes = { data: [] };
             let rolesRes = { data: [] };
-            
+
             try {
                 desigsRes = await api.getDesignations();
             } catch (e) {
                 console.warn('Designation API failed, using fallback data');
             }
-            
+
             try {
                 statesRes = await api.getStates();
             } catch (e) {
                 console.warn('States API failed, using fallback data');
             }
-            
+
             try {
                 rolesRes = await api.getRoles();
             } catch (e) {
                 console.warn('Roles API failed');
             }
-            
+
             setRoles(rolesRes.data || []);
-            
-            const allStates = (statesRes.data && statesRes.data.length > 0) 
-                ? statesRes.data 
-                : FALLBACK_STATES;
+
+            const allZones = getZones().map(z => ({ code: z.name, name: z.name }));
+            setZones(allZones);
+
+            const allStates = (statesRes.data && statesRes.data.length > 0)
+                ? statesRes.data
+                : getStates().map(s => ({ id: s.code, code: s.code, name: s.name, zone_name: '' }));
             setStates(allStates);
-            
-            const allDesignations = (desigsRes.data && desigsRes.data.length > 0) 
-                ? desigsRes.data 
+
+            const allDesignations = (desigsRes.data && desigsRes.data.length > 0)
+                ? desigsRes.data
                 : FALLBACK_DESIGNATIONS;
-            
+
             setDesignations(allDesignations);
 
             if (allDesignations.length > 0) {
@@ -404,14 +414,50 @@ const CreateUser = () => {
             [name]: value
         }));
 
+        if (name === 'zone') {
+            const zoneStates = getStates(value).map(s => ({ id: s.code, code: s.code, name: s.name }));
+            setStates(zoneStates);
+            setForm(prev => ({ ...prev, zone: value, state: '', region: '', branch: '', center: '', area: '' }));
+            setRegions([]);
+            setBranches([]);
+            setCenters([]);
+            setAreas([]);
+        }
+
         if (name === 'state') {
-            fetchBranches(value);
-            setForm(prev => ({ ...prev, branch: '', area: '' }));
+            const stateRegions = getRegions(value, form.zone).map(r => ({ id: r.code, code: r.code, name: r.name }));
+            setRegions(stateRegions);
+            setForm(prev => ({ ...prev, state: value, region: '', branch: '', center: '', area: '' }));
+            setBranches([]);
+            setCenters([]);
+            setAreas([]);
+        }
+
+        if (name === 'region') {
+            const regionBranches = getBranches(form.state, value, form.zone).map(b => ({ id: b.code, code: b.code, name: b.name }));
+            setBranches(regionBranches);
+            setForm(prev => ({ ...prev, region: value, branch: '', center: '', area: '' }));
+            setCenters([]);
+            setAreas([]);
         }
 
         if (name === 'branch') {
-            fetchAreas(value);
-            setForm(prev => ({ ...prev, area: '' }));
+            const branch = branches.find(b => b.code === value);
+            if (branch?.centers) {
+                const branchCenters = getCenters(branch.centers).map(c => ({ id: c.code, code: c.code, name: c.name }));
+                setCenters(branchCenters);
+            }
+            setForm(prev => ({ ...prev, branch: value, center: '', area: '' }));
+            setAreas([]);
+        }
+
+        if (name === 'center') {
+            const center = getCenter(value);
+            if (center?.units) {
+                const centerUnits = getCenters([value]).flatMap(c => c.units.map(u => ({ id: u, code: u, name: u })));
+                setAreas(centerUnits);
+            }
+            setForm(prev => ({ ...prev, center: value, area: '' }));
         }
 
         if (name === 'grade_name') {
@@ -428,7 +474,7 @@ const CreateUser = () => {
 
         if (name === 'department_name') {
             const grade = form.grade_name;
-            const gradeDeptDesigs = designations.filter(d => 
+            const gradeDeptDesigs = designations.filter(d =>
                 d.grade_name === grade && d.department_name === value
             );
             setFilteredDesignations(gradeDeptDesigs);
@@ -444,9 +490,9 @@ const CreateUser = () => {
                 setBranches(res.data);
             }
         } catch (err) {
-            console.warn('Branches API failed, using fallback');
-            const filtered = FALLBACK_BRANCHES.filter(b => b.state === parseInt(stateId));
-            setBranches(filtered);
+            console.warn('Branches API failed, using stateHelper');
+            const branches = getBranches(stateId, '');
+            setBranches(branches.map(b => ({ id: b.code, code: b.code, name: b.name })));
         }
     };
 
@@ -487,12 +533,19 @@ const CreateUser = () => {
                 designation: '',
                 grade_name: '',
                 department_name: '',
+                zone: '',
                 state: '',
+                region: '',
                 branch: '',
+                center: '',
                 area: ''
             });
 
+            setZones([]);
+            setStates([]);
+            setRegions([]);
             setBranches([]);
+            setCenters([]);
             setAreas([]);
             setFilteredDepartments([]);
             setFilteredDesignations([]);
@@ -521,203 +574,260 @@ const CreateUser = () => {
                     {initialLoading ? (
                         <FormSkeleton fields={10} />
                     ) : (
-                    <Grid container spacing={2} sx={{ mt: 1 }}>
+                        <Grid container spacing={2} sx={{ mt: 1 }}>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                label="Username"
-                                name="username"
-                                value={form.username}
-                                onChange={handleChange}
-                            />
-                        </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="Username"
+                                    name="username"
+                                    value={form.username}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                label="Email"
-                                name="email"
-                                type="email"
-                                value={form.email}
-                                onChange={handleChange}
-                            />
-                        </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="Email"
+                                    name="email"
+                                    type="email"
+                                    value={form.email}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                label="Employee ID"
-                                name="employee_id"
-                                value={form.employee_id}
-                                onChange={handleChange}
-                            />
-                        </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="Employee ID"
+                                    name="employee_id"
+                                    value={form.employee_id}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                label="Phone"
-                                name="phone"
-                                value={form.phone}
-                                onChange={handleChange}
-                            />
-                        </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="Phone"
+                                    name="phone"
+                                    value={form.phone}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                label="First Name"
-                                name="first_name"
-                                value={form.first_name}
-                                onChange={handleChange}
-                            />
-                        </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="First Name"
+                                    name="first_name"
+                                    value={form.first_name}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                label="Last Name"
-                                name="last_name"
-                                value={form.last_name}
-                                onChange={handleChange}
-                            />
-                        </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="Last Name"
+                                    name="last_name"
+                                    value={form.last_name}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                select
-                                fullWidth
-                                label="Role"
-                                name="role"
-                                value={form.role}
-                                onChange={handleChange}
-                            >
-                                {roles.length === 0 ? (
-                                    <MenuItem disabled>No roles available</MenuItem>
-                                ) : (
-                                    roles.map((r) => (
-                                        <MenuItem key={r.id} value={r.id}>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Role"
+                                    name="role"
+                                    value={form.role}
+                                    onChange={handleChange}
+                                >
+                                    {roles.length === 0 ? (
+                                        <MenuItem disabled>No roles available</MenuItem>
+                                    ) : (
+                                        roles.map((r) => (
+                                            <MenuItem key={r.id} value={r.id}>
+                                                {r.name}
+                                            </MenuItem>
+                                        ))
+                                    )}
+                                </TextField>
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Grade"
+                                    name="grade_name"
+                                    value={form.grade_name || ''}
+                                    onChange={handleChange}
+                                >
+                                    <MenuItem value="">Select Grade</MenuItem>
+                                    {grades.map((g) => (
+                                        <MenuItem key={g} value={g}>
+                                            {g}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Department"
+                                    name="department_name"
+                                    value={form.department_name || ''}
+                                    onChange={handleChange}
+                                    disabled={!form.grade_name}
+                                >
+                                    <MenuItem value="">Select Department</MenuItem>
+                                    {filteredDepartments.map((d) => (
+                                        <MenuItem key={d} value={d}>
+                                            {d}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Designation"
+                                    name="designation"
+                                    value={form.designation || ''}
+                                    onChange={handleChange}
+                                    disabled={!form.department_name}
+                                >
+                                    <MenuItem value="">Select Designation</MenuItem>
+                                    {filteredDesignations.map((d) => (
+                                        <MenuItem key={d.id} value={d.id}>
+                                            {d.designation_name}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Zone"
+                                    name="zone"
+                                    value={form.zone || ''}
+                                    onChange={handleChange}
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {zones.map((z) => (
+                                        <MenuItem key={z.code} value={z.code}>
+                                            {z.name}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="State"
+                                    name="state"
+                                    value={form.state || ''}
+                                    onChange={handleChange}
+                                    disabled={!form.zone}
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {states.map((s) => (
+                                        <MenuItem key={s.code} value={s.code}>
+                                            {s.name}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Region"
+                                    name="region"
+                                    value={form.region || ''}
+                                    onChange={handleChange}
+                                    disabled={!form.state}
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {regions.map((r) => (
+                                        <MenuItem key={r.code} value={r.code}>
                                             {r.name}
                                         </MenuItem>
-                                    ))
-                                )}
-                            </TextField>
-                        </Grid>
+                                    ))}
+                                </TextField>
+                            </Grid>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                select
-                                fullWidth
-                                label="Grade"
-                                name="grade_name"
-                                value={form.grade_name || ''}
-                                onChange={handleChange}
-                            >
-                                <MenuItem value="">Select Grade</MenuItem>
-                                {grades.map((g) => (
-                                    <MenuItem key={g} value={g}>
-                                        {g}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Branch"
+                                    name="branch"
+                                    value={form.branch || ''}
+                                    onChange={handleChange}
+                                    disabled={!form.region}
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {branches.map((b) => (
+                                        <MenuItem key={b.code} value={b.code}>
+                                            {b.name}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                select
-                                fullWidth
-                                label="Department"
-                                name="department_name"
-                                value={form.department_name || ''}
-                                onChange={handleChange}
-                                disabled={!form.grade_name}
-                            >
-                                <MenuItem value="">Select Department</MenuItem>
-                                {filteredDepartments.map((d) => (
-                                    <MenuItem key={d} value={d}>
-                                        {d}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Center"
+                                    name="center"
+                                    value={form.center || ''}
+                                    onChange={handleChange}
+                                    disabled={!form.branch}
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {centers.map((c) => (
+                                        <MenuItem key={c.code} value={c.code}>
+                                            {c.name}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                select
-                                fullWidth
-                                label="Designation"
-                                name="designation"
-                                value={form.designation || ''}
-                                onChange={handleChange}
-                                disabled={!form.department_name}
-                            >
-                                <MenuItem value="">Select Designation</MenuItem>
-                                {filteredDesignations.map((d) => (
-                                    <MenuItem key={d.id} value={d.id}>
-                                        {d.designation_name}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Unit"
+                                    name="area"
+                                    value={form.area || ''}
+                                    onChange={handleChange}
+                                    disabled={!form.center}
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {areas.map((a) => (
+                                        <MenuItem key={a.code} value={a.code}>
+                                            {a.name}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                select
-                                fullWidth
-                                label="Zone / State"
-                                name="state"
-                                value={form.state || ''}
-                                onChange={handleChange}
-                            >
-                                <MenuItem value="">None</MenuItem>
-                                {states.map((s) => (
-                                    <MenuItem key={s.id} value={s.id}>
-                                        {s.zone_name ? `${s.zone_name} / ${s.name}` : s.name}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
                         </Grid>
-
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                select
-                                fullWidth
-                                label="Branch"
-                                name="branch"
-                                value={form.branch || ''}
-                                onChange={handleChange}
-                                disabled={!form.state}
-                            >
-                                <MenuItem value="">None</MenuItem>
-                                {branches.map((b) => (
-                                    <MenuItem key={b.id} value={b.id}>
-                                        {b.name} ({b.region} - {b.center})
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                select
-                                fullWidth
-                                label="Area"
-                                name="area"
-                                value={form.area || ''}
-                                onChange={handleChange}
-                                disabled={!form.branch}
-                            >
-                                <MenuItem value="">None</MenuItem>
-                                {areas.map((a) => (
-                                    <MenuItem key={a.id} value={a.id}>
-                                        {a.name} {a.unit ? `(${a.unit})` : ''}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-
-                    </Grid>
                     )}
 
                     <Button
