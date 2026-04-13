@@ -560,7 +560,7 @@ const CreateUser = () => {
                             <TextField
                                 select
                                 fullWidth
-                                label="State (Optional)"
+                                label="Zone / State"
                                 name="state"
                                 value={form.state || ''}
                                 onChange={handleChange}
@@ -568,7 +568,7 @@ const CreateUser = () => {
                                 <MenuItem value="">None</MenuItem>
                                 {states.map((s) => (
                                     <MenuItem key={s.id} value={s.id}>
-                                        {s.name}
+                                        {s.zone_name ? `${s.zone_name} / ${s.name}` : s.name}
                                     </MenuItem>
                                 ))}
                             </TextField>
@@ -578,7 +578,7 @@ const CreateUser = () => {
                             <TextField
                                 select
                                 fullWidth
-                                label="Branch (Optional)"
+                                label="Branch"
                                 name="branch"
                                 value={form.branch || ''}
                                 onChange={handleChange}
@@ -587,7 +587,7 @@ const CreateUser = () => {
                                 <MenuItem value="">None</MenuItem>
                                 {branches.map((b) => (
                                     <MenuItem key={b.id} value={b.id}>
-                                        {b.name}
+                                        {b.name} ({b.region} - {b.center})
                                     </MenuItem>
                                 ))}
                             </TextField>
@@ -597,7 +597,7 @@ const CreateUser = () => {
                             <TextField
                                 select
                                 fullWidth
-                                label="Area (Optional)"
+                                label="Area"
                                 name="area"
                                 value={form.area || ''}
                                 onChange={handleChange}
@@ -606,7 +606,7 @@ const CreateUser = () => {
                                 <MenuItem value="">None</MenuItem>
                                 {areas.map((a) => (
                                     <MenuItem key={a.id} value={a.id}>
-                                        {a.name}
+                                        {a.name} {a.unit ? `(${a.unit})` : ''}
                                     </MenuItem>
                                 ))}
                             </TextField>
