@@ -524,26 +524,31 @@ const CreateUser = () => {
             console.log('Available designations:', designations);
             
             if (userData.designation) {
-                const desigInput = String(userData.designation).trim();
+                let desigInput = userData.designation;
+                
+                if (typeof desigInput !== 'string') {
+                    desigInput = String(desigInput);
+                }
+                desigInput = desigInput.trim();
+                
                 const desigNum = parseInt(desigInput);
-                console.log('Input designation:', desigInput, 'Parsed as num:', desigNum);
-                console.log('Designations sample:', designations.slice(0, 5));
+                console.log('Input designation:', desigInput, 'As number:', desigNum, 'Type was:', typeof userData.designation);
+                console.log('Looking in designations:', designations.slice(0, 3).map(d => ({id: d.id, typeId: typeof d.id, name: d.designation_name})));
                 
-                let selectedDesig = null;
-                if (!isNaN(desigNum)) {
-                    selectedDesig = designations.find(d => d.id === desigNum);
-                }
+                let selectedDesig = designations.find(d => {
+                    const idMatch = Number(d.id) === desigNum;
+                    const strMatch = String(d.id) === desigInput;
+                    return idMatch || strMatch;
+                });
+                
                 if (!selectedDesig) {
-                    selectedDesig = designations.find(d => String(d.id) === desigInput);
-                }
-                if (!selectedDesig) {
-                    selectedDesig = designations.find(d => d.designation_name === desigInput);
+                    selectedDesig = designations.find(d => d.designation_name && d.designation_name.toUpperCase() === desigInput.toUpperCase());
                 }
                 
-                console.log('Selected designation:', selectedDesig);
+                console.log('Found:', selectedDesig);
                 if (selectedDesig) {
                     userData.designation = selectedDesig.designation_name;
-                    console.log('Converted to name:', selectedDesig.designation_name);
+                    console.log('OK - sending name:', selectedDesig.designation_name);
                 }
             }
             
