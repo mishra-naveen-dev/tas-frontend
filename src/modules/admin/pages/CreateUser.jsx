@@ -291,6 +291,60 @@ const CreateUser = () => {
             { id: 11, code: 'HR', name: 'Haryana', zone_name: 'NORTH EAST' },
         ];
 
+        const FALLBACK_BRANCHES = [
+            { id: 1, state: 1, name: 'Bhopal', region: 'Bhopal Region', center: 'Bhopal Center' },
+            { id: 2, state: 1, name: 'Indore', region: 'Indore Region', center: 'Indore Center' },
+            { id: 3, state: 1, name: 'Gwalior', region: 'Gwalior Region', center: 'Gwalior Center' },
+            { id: 4, state: 1, name: 'Jabalpur', region: 'Jabalpur Region', center: 'Jabalpur Center' },
+            { id: 5, state: 2, name: 'Lucknow', region: 'Lucknow Region', center: 'Lucknow Center' },
+            { id: 6, state: 2, name: 'Kanpur', region: 'Kanpur Region', center: 'Kanpur Center' },
+            { id: 7, state: 2, name: 'Agra', region: 'Agra Region', center: 'Agra Center' },
+            { id: 8, state: 2, name: 'Varanasi', region: 'Varanasi Region', center: 'Varanasi Center' },
+            { id: 9, state: 3, name: 'Jaipur', region: 'Jaipur Region', center: 'Jaipur Center' },
+            { id: 10, state: 3, name: 'Jodhpur', region: 'Jodhpur Region', center: 'Jodhpur Center' },
+            { id: 11, state: 3, name: 'Udaipur', region: 'Udaipur Region', center: 'Udaipur Center' },
+            { id: 12, state: 4, name: 'Ranchi', region: 'Ranchi Region', center: 'Ranchi Center' },
+            { id: 13, state: 4, name: 'Jamshedpur', region: 'Jamshedpur Region', center: 'Jamshedpur Center' },
+            { id: 14, state: 5, name: 'Dehradun', region: 'Dehradun Region', center: 'Dehradun Center' },
+            { id: 15, state: 5, name: 'Haridwar', region: 'Haridwar Region', center: 'Haridwar Center' },
+            { id: 16, state: 6, name: 'Mumbai', region: 'Mumbai Region', center: 'Mumbai Center' },
+            { id: 17, state: 6, name: 'Pune', region: 'Pune Region', center: 'Pune Center' },
+            { id: 18, state: 6, name: 'Nagpur', region: 'Nagpur Region', center: 'Nagpur Center' },
+            { id: 19, state: 6, name: 'Thane', region: 'Thane Region', center: 'Thane Center' },
+            { id: 20, state: 7, name: 'Hyderabad', region: 'Hyderabad Region', center: 'Hyderabad Center' },
+            { id: 21, state: 7, name: 'Warangal', region: 'Warangal Region', center: 'Warangal Center' },
+            { id: 22, state: 8, name: 'Bangalore', region: 'Bangalore Region', center: 'Bangalore Center' },
+            { id: 23, state: 8, name: 'Mysore', region: 'Mysore Region', center: 'Mysore Center' },
+            { id: 24, state: 8, name: 'Hubli', region: 'Hubli Region', center: 'Hubli Center' },
+            { id: 25, state: 9, name: 'Ahmedabad', region: 'Ahmedabad Region', center: 'Ahmedabad Center' },
+            { id: 26, state: 9, name: 'Surat', region: 'Surat Region', center: 'Surat Center' },
+            { id: 27, state: 9, name: 'Vadodara', region: 'Vadodara Region', center: 'Vadodara Center' },
+            { id: 28, state: 10, name: 'Patna', region: 'Patna Region', center: 'Patna Center' },
+            { id: 29, state: 10, name: 'Gaya', region: 'Gaya Region', center: 'Gaya Center' },
+            { id: 30, state: 11, name: 'Faridabad', region: 'Faridabad Region', center: 'Faridabad Center' },
+            { id: 31, state: 11, name: 'Gurgaon', region: 'Gurgaon Region', center: 'Gurgaon Center' },
+            { id: 32, state: 11, name: 'Panipat', region: 'Panipat Region', center: 'Panipat Center' },
+        ];
+
+        const FALLBACK_AREAS = [
+            { id: 1, branch: 1, name: 'MP Zone 1', unit: 'Unit A' },
+            { id: 2, branch: 1, name: 'MP Zone 2', unit: 'Unit B' },
+            { id: 3, branch: 2, name: 'Indore Zone 1', unit: 'Unit A' },
+            { id: 4, branch: 2, name: 'Indore Zone 2', unit: 'Unit B' },
+            { id: 5, branch: 5, name: 'Lucknow Zone 1', unit: 'Unit A' },
+            { id: 6, branch: 5, name: 'Lucknow Zone 2', unit: 'Unit B' },
+            { id: 7, branch: 16, name: 'Mumbai Zone 1', unit: 'Unit A' },
+            { id: 8, branch: 16, name: 'Mumbai Zone 2', unit: 'Unit B' },
+            { id: 9, branch: 17, name: 'Pune Zone 1', unit: 'Unit A' },
+            { id: 10, branch: 17, name: 'Pune Zone 2', unit: 'Unit B' },
+            { id: 11, branch: 20, name: 'Hyderabad Zone 1', unit: 'Unit A' },
+            { id: 12, branch: 20, name: 'Hyderabad Zone 2', unit: 'Unit B' },
+            { id: 13, branch: 22, name: 'Bangalore Zone 1', unit: 'Unit A' },
+            { id: 14, branch: 22, name: 'Bangalore Zone 2', unit: 'Unit B' },
+            { id: 15, branch: 25, name: 'Ahmedabad Zone 1', unit: 'Unit A' },
+            { id: 16, branch: 25, name: 'Ahmedabad Zone 2', unit: 'Unit B' },
+        ];
+
         try {
             let desigsRes = { data: [] };
             let statesRes = { data: [] };
