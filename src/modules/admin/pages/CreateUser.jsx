@@ -15,7 +15,7 @@ import {
 import api from 'core/services/api';
 import { useAuth } from 'modules/auth/contexts/AuthContext.jsx';
 import { FormSkeleton } from 'shared/components/SkeletonLoader';
-import { getZones, getStates, getRegions, getBranches, getCenters, getCenter } from '@/utils/stateHelper';
+import { getZones, getStates, getRegions, getBranches, getCenters, getCenter } from '../../utils/stateHelper';
 
 const CreateUser = () => {
 

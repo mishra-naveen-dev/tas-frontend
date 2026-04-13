@@ -1,57 +1,17 @@
 import stateData from '../state_helper.json';
 
-export interface Zone {
-  name: string;
-  states: Record<string, State>;
-}
+const data = stateData;
 
-export interface State {
-  code: string;
-  name: string;
-  regions: Record<string, Region>;
-}
+export const getZones = () => data.zones || [];
 
-export interface Region {
-  code: string;
-  name: string;
-  branches: Record<string, Branch>;
-}
-
-export interface Branch {
-  code: string;
-  name: string;
-  centers: string[];
-}
-
-export interface Center {
-  code: string;
-  name: string;
-  units: string[];
-}
-
-export interface Unit {
-  code: string;
-  name: string;
-}
-
-interface StateData {
-  zones: Zone[];
-  centers: Record<string, Center>;
-  units: Record<string, Unit>;
-}
-
-const data = stateData as StateData;
-
-export const getZones = (): Zone[] => data.zones;
-
-export const getStates = (zoneName?: string): State[] => {
+export const getStates = (zoneName) => {
   if (zoneName) {
     const zone = data.zones.find(z => z.name === zoneName);
     return zone ? Object.values(zone.states) : [];
   }
-  const states = new Map<string, State>();
-  data.zones.forEach(zone => {
-    Object.values(zone.states).forEach(state => {
+  const states = new Map();
+  (data.zones || []).forEach(zone => {
+    Object.values(zone.states || {}).forEach(state => {
       if (!states.has(state.code)) {
         states.set(state.code, state);
       }
@@ -60,18 +20,18 @@ export const getStates = (zoneName?: string): State[] => {
   return Array.from(states.values());
 };
 
-export const getRegions = (stateCode: string, zoneName?: string): Region[] => {
+export const getRegions = (stateCode, zoneName) => {
   if (zoneName) {
     const zone = data.zones.find(z => z.name === zoneName);
     if (zone?.states[stateCode]) {
-      return Object.values(zone.states[stateCode].regions);
+      return Object.values(zone.states[stateCode].regions || {});
     }
     return [];
   }
-  const regions = new Map<string, Region>();
-  data.zones.forEach(zone => {
-    if (zone.states[stateCode]) {
-      Object.values(zone.states[stateCode].regions).forEach(region => {
+  const regions = new Map();
+  (data.zones || []).forEach(zone => {
+    if (zone.states?.[stateCode]) {
+      Object.values(zone.states[stateCode].regions || {}).forEach(region => {
         if (!regions.has(region.code)) {
           regions.set(region.code, region);
         }
@@ -81,18 +41,18 @@ export const getRegions = (stateCode: string, zoneName?: string): Region[] => {
   return Array.from(regions.values());
 };
 
-export const getBranches = (stateCode: string, regionCode: string, zoneName?: string): Branch[] => {
+export const getBranches = (stateCode, regionCode, zoneName) => {
   if (zoneName) {
     const zone = data.zones.find(z => z.name === zoneName);
-    if (zone?.states[stateCode]?.regions[regionCode]) {
-      return Object.values(zone.states[stateCode].regions[regionCode].branches);
+    if (zone?.states?.[stateCode]?.regions?.[regionCode]) {
+      return Object.values(zone.states[stateCode].regions[regionCode].branches || {});
     }
     return [];
   }
-  const branches = new Map<string, Branch>();
-  data.zones.forEach(zone => {
-    if (zone.states[stateCode]?.regions[regionCode]) {
-      Object.values(zone.states[stateCode].regions[regionCode].branches).forEach(branch => {
+  const branches = new Map();
+  (data.zones || []).forEach(zone => {
+    if (zone.states?.[stateCode]?.regions?.[regionCode]) {
+      Object.values(zone.states[stateCode].regions[regionCode].branches || {}).forEach(branch => {
         if (!branches.has(branch.code)) {
           branches.set(branch.code, branch);
         }
@@ -102,41 +62,41 @@ export const getBranches = (stateCode: string, regionCode: string, zoneName?: st
   return Array.from(branches.values());
 };
 
-export const getCenters = (centerCodes: string[]): Center[] => {
-  return centerCodes.map(code => data.centers[code]).filter(Boolean);
+export const getCenters = (centerCodes) => {
+  return (centerCodes || []).map(code => data.centers?.[code]).filter(Boolean);
 };
 
-export const getCenter = (centerCode: string): Center | undefined => {
-  return data.centers[centerCode];
+export const getCenter = (centerCode) => {
+  return data.centers?.[centerCode];
 };
 
-export const getUnits = (unitCodes: string[]): Unit[] => {
-  return unitCodes.map(code => data.units[code]).filter(Boolean);
+export const getUnits = (unitCodes) => {
+  return (unitCodes || []).map(code => data.units?.[code]).filter(Boolean);
 };
 
-export const getUnit = (unitCode: string): Unit | undefined => {
-  return data.units[unitCode];
+export const getUnit = (unitCode) => {
+  return data.units?.[unitCode];
 };
 
-export const getAllCenters = (): Center[] => {
-  return Object.values(data.centers);
+export const getAllCenters = () => {
+  return Object.values(data.centers || {});
 };
 
-export const getAllUnits = (): Unit[] => {
-  return Object.values(data.units);
+export const getAllUnits = () => {
+  return Object.values(data.units || {});
 };
 
-export const findHierarchy = (unitCode?: string, centerCode?: string, branchCode?: string) => {
+export const findHierarchy = (unitCode, centerCode, branchCode) => {
   if (unitCode) {
-    const unit = data.units[unitCode];
+    const unit = data.units?.[unitCode];
     if (unit) {
-      const center = Object.values(data.centers).find(c => c.units.includes(unitCode));
+      const center = Object.values(data.centers || {}).find(c => c.units?.includes(unitCode));
       if (center) {
         centerCode = center.code;
-        for (const zone of data.zones) {
-          for (const state of Object.values(zone.states)) {
-            for (const region of Object.values(state.regions)) {
-              const branch = Object.values(region.branches).find(b => b.centers.includes(centerCode));
+        for (const zone of data.zones || []) {
+          for (const state of Object.values(zone.states || {})) {
+            for (const region of Object.values(state.regions || {})) {
+              const branch = Object.values(region.branches || {}).find(b => b.centers?.includes(centerCode));
               if (branch) {
                 return { zone: zone.name, state: state.code, region: region.code, branch: branch.code, center: centerCode, unit: unitCode };
               }
@@ -147,18 +107,4 @@ export const findHierarchy = (unitCode?: string, centerCode?: string, branchCode
     }
   }
   return null;
-};
-
-export default {
-  getZones,
-  getStates,
-  getRegions,
-  getBranches,
-  getCenters,
-  getCenter,
-  getUnits,
-  getUnit,
-  getAllCenters,
-  getAllUnits,
-  findHierarchy
 };
