@@ -526,13 +526,24 @@ const CreateUser = () => {
             if (userData.designation) {
                 const desigInput = String(userData.designation).trim();
                 const desigNum = parseInt(desigInput);
-                let selectedDesig = designations.find(d => d.id === desigNum || String(d.id) === desigInput);
-                console.log('Looking for designation:', desigInput, 'Found:', selectedDesig);
+                console.log('Input designation:', desigInput, 'Parsed as num:', desigNum);
+                console.log('Designations sample:', designations.slice(0, 5));
+                
+                let selectedDesig = null;
+                if (!isNaN(desigNum)) {
+                    selectedDesig = designations.find(d => d.id === desigNum);
+                }
+                if (!selectedDesig) {
+                    selectedDesig = designations.find(d => String(d.id) === desigInput);
+                }
+                if (!selectedDesig) {
+                    selectedDesig = designations.find(d => d.designation_name === desigInput);
+                }
+                
+                console.log('Selected designation:', selectedDesig);
                 if (selectedDesig) {
                     userData.designation = selectedDesig.designation_name;
-                    console.log('Converted designation to name:', selectedDesig.designation_name);
-                } else if (!isNaN(desigNum)) {
-                    userData.designation = desigInput;
+                    console.log('Converted to name:', selectedDesig.designation_name);
                 }
             }
             
