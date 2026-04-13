@@ -521,9 +521,34 @@ const CreateUser = () => {
             const userData = { ...form };
             
             if (userData.designation) {
-                const selectedDesig = designations.find(d => d.id === userData.designation || d.id === parseInt(userData.designation));
+                const desigId = parseInt(userData.designation) || userData.designation;
+                const selectedDesig = designations.find(d => d.id === desigId || String(d.id) === String(userData.designation));
                 if (selectedDesig) {
                     userData.designation = selectedDesig.designation_name;
+                }
+            }
+            
+            if (userData.state) {
+                const stateId = parseInt(userData.state) || userData.state;
+                const selectedState = states.find(s => s.id === stateId || String(s.id) === String(userData.state) || s.code === userData.state);
+                if (selectedState) {
+                    userData.state = selectedState.code || selectedState.id || selectedState.name;
+                }
+            }
+            
+            if (userData.branch) {
+                const branchId = parseInt(userData.branch) || userData.branch;
+                const selectedBranch = branches.find(b => b.id === branchId || String(b.id) === String(userData.branch));
+                if (selectedBranch) {
+                    userData.branch = selectedBranch.code || selectedBranch.id || selectedBranch.name;
+                }
+            }
+            
+            if (userData.area) {
+                const areaId = parseInt(userData.area) || userData.area;
+                const selectedArea = areas.find(a => a.id === areaId || String(a.id) === String(userData.area));
+                if (selectedArea) {
+                    userData.area = selectedArea.code || selectedArea.id || selectedArea.name;
                 }
             }
             
