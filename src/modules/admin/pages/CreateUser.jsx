@@ -20,6 +20,25 @@ const CreateUser = () => {
 
     const { userRole } = useAuth();
 
+    const FALLBACK_BRANCHES = [
+        { id: 1, state: 1, name: 'Bhopal', region: 'Central', center: 'Bhopal' },
+        { id: 2, state: 1, name: 'Indore', region: 'Central', center: 'Indore' },
+        { id: 3, state: 1, name: 'Gwalior', region: 'Central', center: 'Gwalior' },
+        { id: 4, state: 2, name: 'Lucknow', region: 'North', center: 'Lucknow' },
+        { id: 5, state: 2, name: 'Kanpur', region: 'North', center: 'Kanpur' },
+        { id: 6, state: 3, name: 'Jaipur', region: 'West', center: 'Jaipur' },
+        { id: 7, state: 3, name: 'Jodhpur', region: 'West', center: 'Jodhpur' },
+        { id: 8, state: 4, name: 'Ranchi', region: 'East', center: 'Ranchi' },
+        { id: 9, state: 5, name: 'Dehradun', region: 'North', center: 'Dehradun' },
+        { id: 10, state: 6, name: 'Mumbai', region: 'West', center: 'Mumbai' },
+        { id: 11, state: 6, name: 'Pune', region: 'West', center: 'Pune' },
+        { id: 12, state: 7, name: 'Hyderabad', region: 'South', center: 'Hyderabad' },
+        { id: 13, state: 8, name: 'Bangalore', region: 'South', center: 'Bangalore' },
+        { id: 14, state: 9, name: 'Ahmedabad', region: 'West', center: 'Ahmedabad' },
+        { id: 15, state: 10, name: 'Patna', region: 'East', center: 'Patna' },
+        { id: 16, state: 11, name: 'Faridabad', region: 'North', center: 'Faridabad' },
+    ];
+
     const [form, setForm] = useState({
         username: '',
         email: '',
@@ -258,21 +277,49 @@ const CreateUser = () => {
             { id: 194, grade_name: 'Manager', designation_name: 'Zonal Head', department_name: 'OPERATIONS' },
         ];
 
+        const FALLBACK_STATES = [
+            { id: 1, code: 'MP', name: 'Madhya Pradesh', zone_name: 'Central_Zone' },
+            { id: 2, code: 'UP', name: 'Uttar Pradesh', zone_name: 'NORTH EAST' },
+            { id: 3, code: 'RJ', name: 'Rajasthan', zone_name: 'South West' },
+            { id: 4, code: 'JH', name: 'Jharkhand', zone_name: 'NORTH EAST' },
+            { id: 5, code: 'UK', name: 'Uttarakhand', zone_name: 'NORTH EAST' },
+            { id: 6, code: 'MH', name: 'Maharashtra', zone_name: 'South West' },
+            { id: 7, code: 'TG', name: 'Telangana', zone_name: 'South' },
+            { id: 8, code: 'KA', name: 'Karnataka', zone_name: 'South' },
+            { id: 9, code: 'GJ', name: 'Gujarat', zone_name: 'Western_Zone' },
+            { id: 10, code: 'BR', name: 'Bihar', zone_name: 'NORTH EAST' },
+            { id: 11, code: 'HR', name: 'Haryana', zone_name: 'NORTH EAST' },
+        ];
+
         try {
             let desigsRes = { data: [] };
+            let statesRes = { data: [] };
+            let rolesRes = { data: [] };
+            
             try {
                 desigsRes = await api.getDesignations();
             } catch (e) {
                 console.warn('Designation API failed, using fallback data');
             }
-
-            const [rolesRes, statesRes] = await Promise.all([
-                api.getRoles(),
-                api.getStates()
-            ]);
-
+            
+            try {
+                statesRes = await api.getStates();
+            } catch (e) {
+                console.warn('States API failed, using fallback data');
+            }
+            
+            try {
+                rolesRes = await api.getRoles();
+            } catch (e) {
+                console.warn('Roles API failed');
+            }
+            
             setRoles(rolesRes.data || []);
-            setStates(statesRes.data || []);
+            
+            const allStates = (statesRes.data && statesRes.data.length > 0) 
+                ? statesRes.data 
+                : FALLBACK_STATES;
+            setStates(allStates);
             
             const allDesignations = (desigsRes.data && desigsRes.data.length > 0) 
                 ? desigsRes.data 
@@ -339,9 +386,13 @@ const CreateUser = () => {
         if (!stateId) return;
         try {
             const res = await api.getBranches(stateId);
-            setBranches(res.data || []);
+            if (res.data && res.data.length > 0) {
+                setBranches(res.data);
+            }
         } catch (err) {
-            console.error(err);
+            console.warn('Branches API failed, using fallback');
+            const filtered = FALLBACK_BRANCHES.filter(b => b.state === parseInt(stateId));
+            setBranches(filtered);
         }
     };
 
