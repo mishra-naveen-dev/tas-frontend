@@ -39,6 +39,9 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
         correction_time: '',
         punch_type: 'PUNCH_IN',
         visit_type: 'OFFICE',
+        loan_id: '',
+        amount: '',
+        payment_method: 'CASH',
         from_address: '',
         pincode: '',
         place_id: '',
@@ -230,6 +233,51 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                             <MenuItem value="OTHER">Other</MenuItem>
                         </TextField>
                     </Grid>
+
+                    {(form.visit_type === 'DISBURSEMENT' || form.visit_type === 'COLLECTION') && (
+                        <>
+                            <Grid item xs={12} sm={6}>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    label="Loan ID"
+                                    name="loan_id"
+                                    value={form.loan_id}
+                                    onChange={handleChange}
+                                    placeholder="Enter Loan ID"
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    type="number"
+                                    label="Amount"
+                                    name="amount"
+                                    value={form.amount}
+                                    onChange={handleChange}
+                                    placeholder="Enter Amount"
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    size="small"
+                                    label="Payment Method"
+                                    name="payment_method"
+                                    value={form.payment_method}
+                                    onChange={handleChange}
+                                >
+                                    <MenuItem value="CASH">Cash</MenuItem>
+                                    <MenuItem value="ONLINE">Online Transfer</MenuItem>
+                                    <MenuItem value="CHEQUE">Cheque</MenuItem>
+                                    <MenuItem value="UPI">UPI</MenuItem>
+                                    <MenuItem value="OTHER">Other</MenuItem>
+                                </TextField>
+                            </Grid>
+                        </>
+                    )}
 
                     <Grid item xs={12} sm={6}>
                         <TextField
