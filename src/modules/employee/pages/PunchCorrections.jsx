@@ -27,6 +27,9 @@ import {
     Edit as EditIcon,
     Send as SendIcon,
     Place as PlaceIcon,
+    Delete as DeleteIcon,
+    ArrowUpward as ArrowUpIcon,
+    ArrowDownward as ArrowDownIcon,
 } from '@mui/icons-material';
 import api from 'core/services/api';
 import { TableSkeleton } from 'shared/components/SkeletonLoader';
@@ -46,6 +49,8 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
         pincode: '',
         place_id: '',
         to_address: '',
+        punchMode: 'single', // 'single' or 'sequence'
+        punch_sequence: [],
         reason: '',
     });
     const [addressSuggestions, setAddressSuggestions] = useState([]);
@@ -95,6 +100,48 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
         }
     };
 
+    // Punch sequence handlers
+    const handleAddPunchPoint = () => {
+        const newPoint = {
+            sequence: form.punch_sequence.length + 1,
+            address: '',
+            pincode: '',
+            latitude: null,
+            longitude: null,
+            time: '',
+            punch_type: form.punch_sequence.length === 0 ? 'PUNCH_IN' : 'PUNCH_OUT',
+            visit_type: 'OFFICE'
+        };
+        setForm(prev => ({
+            ...prev,
+            punch_sequence: [...prev.punch_sequence, newPoint]
+        }));
+    };
+
+    const handleUpdatePunchPoint = (index, field, value) => {
+        const updated = [...form.punch_sequence];
+        updated[index] = { ...updated[index], [field]: value };
+        setForm(prev => ({ ...prev, punch_sequence: updated }));
+    };
+
+    const handleRemovePunchPoint = (index) => {
+        const updated = form.punch_sequence.filter((_, i) => i !== index);
+        // Re-sequence
+        updated.forEach((p, i) => p.sequence = i + 1);
+        setForm(prev => ({ ...prev, punch_sequence: updated }));
+    };
+
+    const handleMovePunchPoint = (index, direction) => {
+        if (direction === 'up' && index === 0) return;
+        if (direction === 'down' && index === form.punch_sequence.length - 1) return;
+        
+        const updated = [...form.punch_sequence];
+        const swapIdx = direction === 'up' ? index - 1 : index + 1;
+        [updated[index], updated[swapIdx] = [updated[swapIdx], updated[index]];
+        updated.forEach((p, i) => p.sequence = i + 1);
+        setForm(prev => ({ ...prev, punch_sequence: updated }));
+    };
+
     const fetchAddressSuggestions = async (query) => {
         setAddressLoading(true);
         try {
@@ -130,26 +177,54 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
         setError('');
         setSuccess('');
 
-        // Require either address OR pincode
-        if (!form.correction_date || !form.correction_time || !form.reason) {
-            setError('Date, time and reason are required');
+        // Validate based on mode
+        if (!form.correction_date || !form.reason) {
+            setError('Date and reason are required');
             return;
         }
 
-        if (!form.from_address && !form.pincode) {
-            setError('Either address or pincode is required');
-            return;
-        }
-
-        if (form.pincode && !/^\d{6}$/.test(form.pincode)) {
-            setError('Pincode must be 6 digits');
-            return;
+        if (form.punchMode === 'sequence') {
+            if (form.punch_sequence.length < 2) {
+                setError('Add at least 2 punch points for sequence');
+                return;
+            }
+            // Validate each point
+            for (const point of form.punch_sequence) {
+                if (!point.address && !point.pincode) {
+                    setError('Each punch point needs address or pincode');
+                    return;
+                }
+            }
+        } else {
+            if (!form.correction_time) {
+                setError('Time is required');
+                return;
+            }
+            if (!form.from_address && !form.pincode) {
+                setError('Either address or pincode is required');
+                return;
+            }
+            if (form.pincode && !/^\d{6}$/.test(form.pincode)) {
+                setError('Pincode must be 6 digits');
+                return;
+            }
         }
 
         setLoading(true);
         try {
             const payload = {
-                ...form,
+                correction_type: form.correction_type,
+                correction_date: form.correction_date,
+                correction_time: form.correction_time || '09:00',
+                punch_type: form.punch_type,
+                visit_type: form.visit_type,
+                loan_id: form.loan_id,
+                amount: form.amount ? parseFloat(form.amount) : null,
+                payment_method: form.payment_method,
+                from_address: form.from_address,
+                pincode: form.pincode,
+                punch_sequence: form.punchMode === 'sequence' ? form.punch_sequence : [],
+                reason: form.reason,
                 original_punch_id: form.original_punch_id ? parseInt(form.original_punch_id) : null,
             };
             await api.createCorrectionRequest(payload);
@@ -191,13 +266,113 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                             label="Correction Type"
                             name="correction_type"
                             value={form.correction_type}
-                            onChange={handleChange}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setForm(prev => ({
+                                    ...prev,
+                                    correction_type: val,
+                                    punchMode: val === 'ADD' ? 'sequence' : 'single'
+                                }));
+                            }}
                         >
                             <MenuItem value="ADD">Add Punch</MenuItem>
                             <MenuItem value="EDIT">Edit Punch</MenuItem>
                             <MenuItem value="DELETE">Delete Punch</MenuItem>
                         </TextField>
                     </Grid>
+
+                    {form.correction_type === 'ADD' && (
+                        <Grid item xs={12}>
+                            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                                <Button
+                                    variant={form.punchMode === 'single' ? 'contained' : 'outlined'}
+                                    size="small"
+                                    onClick={() => setForm(prev => ({ ...prev, punchMode: 'single' }))}
+                                >
+                                    Single Punch
+                                </Button>
+                                <Button
+                                    variant={form.punchMode === 'sequence' ? 'contained' : 'outlined'}
+                                    size="small"
+                                    onClick={() => setForm(prev => ({ ...prev, punchMode: 'sequence' }))}
+                                >
+                                    Punch Sequence
+                                </Button>
+                            </Box>
+                        </Grid>
+                    )}
+
+                    {form.punchMode === 'sequence' && (
+                        <Grid item xs={12}>
+                            <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                    <Typography variant="subtitle1" fontWeight="bold">
+                                        Punch Sequence Points
+                                    </Typography>
+                                    <Button 
+                                        variant="contained" 
+                                        size="small" 
+                                        startIcon={<AddIcon />}
+                                        onClick={handleAddPunchPoint}
+                                    >
+                                        Add Point
+                                    </Button>
+                                </Box>
+                                
+                                {form.punch_sequence.length === 0 ? (
+                                    <Typography color="text.secondary">
+                                        Click "Add Point" to add punch locations in sequence order
+                                    </Typography>
+                                ) : (
+                                    form.punch_sequence.map((point, index) => (
+                                        <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                                            <Typography fontWeight="bold" minWidth={30}>{index + 1}.</Typography>
+                                            <TextField
+                                                size="small"
+                                                placeholder="Address"
+                                                value={point.address || ''}
+                                                onChange={(e) => handleUpdatePunchPoint(index, 'address', e.target.value)}
+                                                sx={{ flex: 1 }}
+                                            />
+                                            <TextField
+                                                size="small"
+                                                placeholder="Pincode"
+                                                value={point.pincode || ''}
+                                                onChange={(e) => handleUpdatePunchPoint(index, 'pincode', e.target.value)}
+                                                sx={{ width: 100 }}
+                                            />
+                                            <TextField
+                                                size="small"
+                                                type="time"
+                                                value={point.time || ''}
+                                                onChange={(e) => handleUpdatePunchPoint(index, 'time', e.target.value)}
+                                                sx={{ width: 120 }}
+                                            />
+                                            <TextField
+                                                size="small"
+                                                select
+                                                value={point.punch_type || 'PUNCH_IN'}
+                                                onChange={(e) => handleUpdatePunchPoint(index, 'punch_type', e.target.value)}
+                                                sx={{ width: 100 }}
+                                            >
+                                                <MenuItem value="PUNCH_IN">IN</MenuItem>
+                                                <MenuItem value="PUNCH_OUT">OUT</MenuItem>
+                                            </TextField>
+                                            <IconButton size="small" onClick={() => handleMovePunchPoint(index, 'up')} disabled={index === 0}>
+                                                <ArrowUpIcon />
+                                            </IconButton>
+                                            <IconButton size="small" onClick={() => handleMovePunchPoint(index, 'down')} disabled={index === form.punch_sequence.length - 1}>
+                                                <ArrowDownIcon />
+                                            </IconButton>
+                                            <IconButton size="small" color="error" onClick={() => handleRemovePunchPoint(index)}>
+                                                <DeleteIcon />
+                                            </IconButton>
+                                        </Box>
+                                    ))
+                                )}
+                            </Paper>
+                        </Grid>
+                    )}
 
                     <Grid item xs={12} sm={6}>
                         <TextField
