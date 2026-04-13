@@ -15,7 +15,7 @@ import {
 import api from 'core/services/api';
 import { useAuth } from 'modules/auth/contexts/AuthContext.jsx';
 import { FormSkeleton } from 'shared/components/SkeletonLoader';
-import { getZones, getStates, getRegions, getBranches, getCenters, getCenter } from '../../utils/stateHelper.js';
+import { getZones, getStates, getRegions, getBranches, getCenters, getCenter } from '@/utils/stateHelper';
 
 const CreateUser = () => {
 
@@ -86,7 +86,7 @@ const CreateUser = () => {
     const fetchInitialData = async () => {
         setInitialLoading(true);
         setError('');
-        
+
         const FALLBACK_DESIGNATIONS = [
             { id: 1, grade_name: 'Asst. Manager', designation_name: 'BRANCH ACCOUNTANT', department_name: 'OPERATIONS' },
             { id: 2, grade_name: 'Manager', designation_name: 'RO 1', department_name: 'Collection' },
@@ -356,39 +356,39 @@ const CreateUser = () => {
             let desigsRes = { data: [] };
             let statesRes = { data: [] };
             let rolesRes = { data: [] };
-            
+
             try {
                 desigsRes = await api.getDesignations();
             } catch (e) {
                 console.warn('Designation API failed, using fallback data');
             }
-            
+
             try {
                 statesRes = await api.getStates();
             } catch (e) {
                 console.warn('States API failed, using fallback data');
             }
-            
+
             try {
                 rolesRes = await api.getRoles();
             } catch (e) {
                 console.warn('Roles API failed');
             }
-            
+
             setRoles(rolesRes.data || []);
-            
+
             const allZones = getZones().map(z => ({ code: z.name, name: z.name }));
             setZones(allZones);
-            
-            const allStates = (statesRes.data && statesRes.data.length > 0) 
-                ? statesRes.data 
+
+            const allStates = (statesRes.data && statesRes.data.length > 0)
+                ? statesRes.data
                 : getStates().map(s => ({ id: s.code, code: s.code, name: s.name, zone_name: '' }));
             setStates(allStates);
-            
-            const allDesignations = (desigsRes.data && desigsRes.data.length > 0) 
-                ? desigsRes.data 
+
+            const allDesignations = (desigsRes.data && desigsRes.data.length > 0)
+                ? desigsRes.data
                 : FALLBACK_DESIGNATIONS;
-            
+
             setDesignations(allDesignations);
 
             if (allDesignations.length > 0) {
@@ -474,7 +474,7 @@ const CreateUser = () => {
 
         if (name === 'department_name') {
             const grade = form.grade_name;
-            const gradeDeptDesigs = designations.filter(d => 
+            const gradeDeptDesigs = designations.filter(d =>
                 d.grade_name === grade && d.department_name === value
             );
             setFilteredDesignations(gradeDeptDesigs);
@@ -574,260 +574,260 @@ const CreateUser = () => {
                     {initialLoading ? (
                         <FormSkeleton fields={10} />
                     ) : (
-                    <Grid container spacing={2} sx={{ mt: 1 }}>
+                        <Grid container spacing={2} sx={{ mt: 1 }}>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                label="Username"
-                                name="username"
-                                value={form.username}
-                                onChange={handleChange}
-                            />
-                        </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="Username"
+                                    name="username"
+                                    value={form.username}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                label="Email"
-                                name="email"
-                                type="email"
-                                value={form.email}
-                                onChange={handleChange}
-                            />
-                        </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="Email"
+                                    name="email"
+                                    type="email"
+                                    value={form.email}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                label="Employee ID"
-                                name="employee_id"
-                                value={form.employee_id}
-                                onChange={handleChange}
-                            />
-                        </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="Employee ID"
+                                    name="employee_id"
+                                    value={form.employee_id}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                label="Phone"
-                                name="phone"
-                                value={form.phone}
-                                onChange={handleChange}
-                            />
-                        </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="Phone"
+                                    name="phone"
+                                    value={form.phone}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                label="First Name"
-                                name="first_name"
-                                value={form.first_name}
-                                onChange={handleChange}
-                            />
-                        </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="First Name"
+                                    name="first_name"
+                                    value={form.first_name}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                fullWidth
-                                label="Last Name"
-                                name="last_name"
-                                value={form.last_name}
-                                onChange={handleChange}
-                            />
-                        </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    fullWidth
+                                    label="Last Name"
+                                    name="last_name"
+                                    value={form.last_name}
+                                    onChange={handleChange}
+                                />
+                            </Grid>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                select
-                                fullWidth
-                                label="Role"
-                                name="role"
-                                value={form.role}
-                                onChange={handleChange}
-                            >
-                                {roles.length === 0 ? (
-                                    <MenuItem disabled>No roles available</MenuItem>
-                                ) : (
-                                    roles.map((r) => (
-                                        <MenuItem key={r.id} value={r.id}>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Role"
+                                    name="role"
+                                    value={form.role}
+                                    onChange={handleChange}
+                                >
+                                    {roles.length === 0 ? (
+                                        <MenuItem disabled>No roles available</MenuItem>
+                                    ) : (
+                                        roles.map((r) => (
+                                            <MenuItem key={r.id} value={r.id}>
+                                                {r.name}
+                                            </MenuItem>
+                                        ))
+                                    )}
+                                </TextField>
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Grade"
+                                    name="grade_name"
+                                    value={form.grade_name || ''}
+                                    onChange={handleChange}
+                                >
+                                    <MenuItem value="">Select Grade</MenuItem>
+                                    {grades.map((g) => (
+                                        <MenuItem key={g} value={g}>
+                                            {g}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Department"
+                                    name="department_name"
+                                    value={form.department_name || ''}
+                                    onChange={handleChange}
+                                    disabled={!form.grade_name}
+                                >
+                                    <MenuItem value="">Select Department</MenuItem>
+                                    {filteredDepartments.map((d) => (
+                                        <MenuItem key={d} value={d}>
+                                            {d}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Designation"
+                                    name="designation"
+                                    value={form.designation || ''}
+                                    onChange={handleChange}
+                                    disabled={!form.department_name}
+                                >
+                                    <MenuItem value="">Select Designation</MenuItem>
+                                    {filteredDesignations.map((d) => (
+                                        <MenuItem key={d.id} value={d.id}>
+                                            {d.designation_name}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Zone"
+                                    name="zone"
+                                    value={form.zone || ''}
+                                    onChange={handleChange}
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {zones.map((z) => (
+                                        <MenuItem key={z.code} value={z.code}>
+                                            {z.name}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="State"
+                                    name="state"
+                                    value={form.state || ''}
+                                    onChange={handleChange}
+                                    disabled={!form.zone}
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {states.map((s) => (
+                                        <MenuItem key={s.code} value={s.code}>
+                                            {s.name}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
+
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Region"
+                                    name="region"
+                                    value={form.region || ''}
+                                    onChange={handleChange}
+                                    disabled={!form.state}
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {regions.map((r) => (
+                                        <MenuItem key={r.code} value={r.code}>
                                             {r.name}
                                         </MenuItem>
-                                    ))
-                                )}
-                            </TextField>
-                        </Grid>
+                                    ))}
+                                </TextField>
+                            </Grid>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                select
-                                fullWidth
-                                label="Grade"
-                                name="grade_name"
-                                value={form.grade_name || ''}
-                                onChange={handleChange}
-                            >
-                                <MenuItem value="">Select Grade</MenuItem>
-                                {grades.map((g) => (
-                                    <MenuItem key={g} value={g}>
-                                        {g}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Branch"
+                                    name="branch"
+                                    value={form.branch || ''}
+                                    onChange={handleChange}
+                                    disabled={!form.region}
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {branches.map((b) => (
+                                        <MenuItem key={b.code} value={b.code}>
+                                            {b.name}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                select
-                                fullWidth
-                                label="Department"
-                                name="department_name"
-                                value={form.department_name || ''}
-                                onChange={handleChange}
-                                disabled={!form.grade_name}
-                            >
-                                <MenuItem value="">Select Department</MenuItem>
-                                {filteredDepartments.map((d) => (
-                                    <MenuItem key={d} value={d}>
-                                        {d}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Center"
+                                    name="center"
+                                    value={form.center || ''}
+                                    onChange={handleChange}
+                                    disabled={!form.branch}
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {centers.map((c) => (
+                                        <MenuItem key={c.code} value={c.code}>
+                                            {c.name}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                select
-                                fullWidth
-                                label="Designation"
-                                name="designation"
-                                value={form.designation || ''}
-                                onChange={handleChange}
-                                disabled={!form.department_name}
-                            >
-                                <MenuItem value="">Select Designation</MenuItem>
-                                {filteredDesignations.map((d) => (
-                                    <MenuItem key={d.id} value={d.id}>
-                                        {d.designation_name}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
+                            <Grid item xs={12} md={6}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Unit"
+                                    name="area"
+                                    value={form.area || ''}
+                                    onChange={handleChange}
+                                    disabled={!form.center}
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {areas.map((a) => (
+                                        <MenuItem key={a.code} value={a.code}>
+                                            {a.name}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
 
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                select
-                                fullWidth
-                                label="Zone"
-                                name="zone"
-                                value={form.zone || ''}
-                                onChange={handleChange}
-                            >
-                                <MenuItem value="">None</MenuItem>
-                                {zones.map((z) => (
-                                    <MenuItem key={z.code} value={z.code}>
-                                        {z.name}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
                         </Grid>
-
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                select
-                                fullWidth
-                                label="State"
-                                name="state"
-                                value={form.state || ''}
-                                onChange={handleChange}
-                                disabled={!form.zone}
-                            >
-                                <MenuItem value="">None</MenuItem>
-                                {states.map((s) => (
-                                    <MenuItem key={s.code} value={s.code}>
-                                        {s.name}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                select
-                                fullWidth
-                                label="Region"
-                                name="region"
-                                value={form.region || ''}
-                                onChange={handleChange}
-                                disabled={!form.state}
-                            >
-                                <MenuItem value="">None</MenuItem>
-                                {regions.map((r) => (
-                                    <MenuItem key={r.code} value={r.code}>
-                                        {r.name}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                select
-                                fullWidth
-                                label="Branch"
-                                name="branch"
-                                value={form.branch || ''}
-                                onChange={handleChange}
-                                disabled={!form.region}
-                            >
-                                <MenuItem value="">None</MenuItem>
-                                {branches.map((b) => (
-                                    <MenuItem key={b.code} value={b.code}>
-                                        {b.name}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                select
-                                fullWidth
-                                label="Center"
-                                name="center"
-                                value={form.center || ''}
-                                onChange={handleChange}
-                                disabled={!form.branch}
-                            >
-                                <MenuItem value="">None</MenuItem>
-                                {centers.map((c) => (
-                                    <MenuItem key={c.code} value={c.code}>
-                                        {c.name}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-
-                        <Grid item xs={12} md={6}>
-                            <TextField
-                                select
-                                fullWidth
-                                label="Unit"
-                                name="area"
-                                value={form.area || ''}
-                                onChange={handleChange}
-                                disabled={!form.center}
-                            >
-                                <MenuItem value="">None</MenuItem>
-                                {areas.map((a) => (
-                                    <MenuItem key={a.code} value={a.code}>
-                                        {a.name}
-                                    </MenuItem>
-                                ))}
-                            </TextField>
-                        </Grid>
-
-                    </Grid>
                     )}
 
                     <Button
