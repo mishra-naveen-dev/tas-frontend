@@ -30,6 +30,7 @@ import {
     Delete as DeleteIcon,
     ArrowUpward as ArrowUpIcon,
     ArrowDownward as ArrowDownIcon,
+    IconButton,
 } from '@mui/icons-material';
 import api from 'core/services/api';
 import { TableSkeleton } from 'shared/components/SkeletonLoader';
@@ -59,44 +60,68 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [fieldErrors, setFieldErrors] = useState({});
 
-    useEffect(() => {
-        if (editPunch) {
-            setForm(f => ({
-                ...f,
-                correction_type: 'EDIT',
-                original_punch_id: editPunch.id,
-                correction_date: editPunch.punch_date,
-                correction_time: new Date(editPunch.punched_at).toTimeString().slice(0, 5),
-                punch_type: editPunch.punch_type,
-                from_address: `Lat: ${editPunch.latitude}, Lng: ${editPunch.longitude}`,
-                pincode: editPunch.pincode || '',
-                reason: '',
-            }));
-        } else {
-            setForm({
-                correction_type: 'ADD',
-                original_punch_id: '',
-                correction_date: '',
-                correction_time: '',
-                punch_type: 'PUNCH_IN',
-                from_address: '',
-                pincode: '',
-                to_address: '',
-                reason: '',
-            });
+    // Validation functions
+    const validateField = (name, value) => {
+        const errors = {};
+        
+        if (name === 'correction_date') {
+            if (!value) errors.correction_date = 'Date is required';
+            else if (new Date(value) > new Date()) errors.correction_date = 'Date cannot be in future';
         }
-    }, [editPunch]);
+        
+        if (name === 'correction_time') {
+            if (form.punchMode === 'single' && !value) errors.correction_time = 'Time is required';
+        }
+        
+        if (name === 'from_address') {
+            if (form.punchMode === 'single' && !value && !form.pincode) {
+                errors.from_address = 'Address or pincode is required';
+            }
+        }
+        
+        if (name === 'pincode') {
+            if (value && !/^\d{6}$/.test(value)) {
+                errors.pincode = 'Pincode must be 6 digits';
+            }
+        }
+        
+        if (name === 'reason') {
+            if (!value || value.trim().length < 10) {
+                errors.reason = 'Reason must be at least 10 characters';
+            }
+        }
+        
+        return errors;
+    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setForm(prev => ({ ...prev, [name]: value }));
+        
+        // Clear related field error when user starts typing
+        if (fieldErrors[name]) {
+            setFieldErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[name];
+                return newErrors;
+            });
+        }
         
         // Address autocomplete
         if (name === 'from_address' && value.length >= 3) {
             fetchAddressSuggestions(value);
         } else if (name === 'from_address' && value.length < 3) {
             setAddressSuggestions([]);
+        }
+    };
+
+    const handleBlur = (e) => {
+        const { name, value } = e.target;
+        const errors = validateField(name, value);
+        if (Object.keys(errors).length > 0) {
+            setFieldErrors(prev => ({ ...prev, ...errors }));
         }
     };
 
@@ -176,38 +201,48 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
     const handleSubmit = async () => {
         setError('');
         setSuccess('');
+        setFieldErrors({});
 
-        // Validate based on mode
-        if (!form.correction_date || !form.reason) {
-            setError('Date and reason are required');
-            return;
+        const allErrors = {};
+
+        // Validate correction_date
+        if (!form.correction_date) {
+            allErrors.correction_date = 'Date is required';
+        } else if (new Date(form.correction_date) > new Date()) {
+            allErrors.correction_date = 'Date cannot be in future';
+        }
+
+        // Validate reason
+        if (!form.reason || form.reason.trim().length < 10) {
+            allErrors.reason = 'Reason must be at least 10 characters';
         }
 
         if (form.punchMode === 'sequence') {
             if (form.punch_sequence.length < 2) {
-                setError('Add at least 2 punch points for sequence');
-                return;
+                allErrors.general = 'Add at least 2 punch points for sequence';
             }
             // Validate each point
-            for (const point of form.punch_sequence) {
+            for (let i = 0; i < form.punch_sequence.length; i++) {
+                const point = form.punch_sequence[i];
                 if (!point.address && !point.pincode) {
-                    setError('Each punch point needs address or pincode');
-                    return;
+                    allErrors[`point_${i}`] = 'Address or pincode required';
                 }
             }
         } else {
             if (!form.correction_time) {
-                setError('Time is required');
-                return;
+                allErrors.correction_time = 'Time is required';
             }
             if (!form.from_address && !form.pincode) {
-                setError('Either address or pincode is required');
-                return;
+                allErrors.from_address = 'Address or pincode is required';
             }
             if (form.pincode && !/^\d{6}$/.test(form.pincode)) {
-                setError('Pincode must be 6 digits');
-                return;
+                allErrors.pincode = 'Pincode must be 6 digits';
             }
+        }
+
+        if (Object.keys(allErrors).length > 0) {
+            setFieldErrors(allErrors);
+            return;
         }
 
         setLoading(true);
@@ -254,6 +289,7 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                 </Box>
             </DialogTitle>
             <DialogContent>
+                {fieldErrors.general && <Alert severity="error" sx={{ mb: 2 }}>{fieldErrors.general}</Alert>}
                 {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
                 {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
@@ -325,13 +361,15 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                                     </Typography>
                                 ) : (
                                     form.punch_sequence.map((point, index) => (
-                                        <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                                        <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, p: 1, bgcolor: 'grey.50', borderRadius: 1, border: fieldErrors[`point_${index}`] ? '1px solid red' : 'none' }}>
                                             <Typography fontWeight="bold" minWidth={30}>{index + 1}.</Typography>
                                             <TextField
                                                 size="small"
                                                 placeholder="Address or Location"
                                                 value={point.address || ''}
                                                 onChange={(e) => handleUpdatePunchPoint(index, 'address', e.target.value)}
+                                                error={!!fieldErrors[`point_${index}`]}
+                                                helperText={fieldErrors[`point_${index}`]}
                                                 sx={{ flex: 1 }}
                                             />
                                             <TextField
@@ -339,6 +377,7 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                                                 placeholder="Pincode"
                                                 value={point.pincode || ''}
                                                 onChange={(e) => handleUpdatePunchPoint(index, 'pincode', e.target.value)}
+                                                inputProps={{ maxLength: 6 }}
                                                 sx={{ width: 100 }}
                                             />
                                             <TextField
@@ -454,7 +493,13 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                             name="correction_date"
                             value={form.correction_date}
                             onChange={handleChange}
+                            onBlur={handleBlur}
+                            error={!!fieldErrors.correction_date}
+                            helperText={fieldErrors.correction_date}
                             InputLabelProps={{ shrink: true }}
+                            inputProps={{
+                                max: new Date().toISOString().split('T')[0]
+                            }}
                         />
                     </Grid>
 
@@ -467,6 +512,9 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                             name="correction_time"
                             value={form.correction_time}
                             onChange={handleChange}
+                            onBlur={handleBlur}
+                            error={!!fieldErrors.correction_time}
+                            helperText={fieldErrors.correction_time}
                             InputLabelProps={{ shrink: true }}
                         />
                     </Grid>
@@ -479,6 +527,9 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                             name="from_address"
                             value={form.from_address}
                             onChange={handleChange}
+                            onBlur={handleBlur}
+                            error={!!fieldErrors.from_address}
+                            helperText={fieldErrors.from_address}
                             placeholder="Start typing address..."
                             onFocus={() => addressSuggestions.length > 0 && setShowSuggestions(true)}
                             InputProps={{
@@ -508,10 +559,11 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                             name="pincode"
                             value={form.pincode}
                             onChange={handleChange}
+                            onBlur={handleBlur}
+                            error={!!fieldErrors.pincode}
+                            helperText={fieldErrors.pincode || (form.pincode.length > 0 && form.pincode.length !== 6 ? '6 digits required' : 'Auto-filled from address')}
                             placeholder="6-digit pincode"
                             inputProps={{ maxLength: 6 }}
-                            error={form.pincode.length > 0 && form.pincode.length !== 6}
-                            helperText={form.pincode.length > 0 && form.pincode.length !== 6 ? '6 digits required' : 'Auto-filled from address'}
                         />
                     </Grid>
 
@@ -538,6 +590,9 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                             name="reason"
                             value={form.reason}
                             onChange={handleChange}
+                            onBlur={handleBlur}
+                            error={!!fieldErrors.reason}
+                            helperText={fieldErrors.reason || `${form.reason?.length || 0}/10 characters minimum`}
                             multiline
                             rows={3}
                             placeholder="Explain why this correction is needed..."

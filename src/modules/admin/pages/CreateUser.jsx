@@ -28,12 +28,18 @@ const CreateUser = () => {
         last_name: '',
         phone: '',
         role: '',
+        designation: '',
         state: '',
         branch: '',
         area: ''
     });
 
     const [roles, setRoles] = useState([]);
+    const [grades, setGrades] = useState([]);
+    const [departments, setDepartments] = useState([]);
+    const [designations, setDesignations] = useState([]);
+    const [filteredDepartments, setFilteredDepartments] = useState([]);
+    const [filteredDesignations, setFilteredDesignations] = useState([]);
     const [states, setStates] = useState([]);
     const [branches, setBranches] = useState([]);
     const [areas, setAreas] = useState([]);
@@ -43,7 +49,6 @@ const CreateUser = () => {
     const [success, setSuccess] = useState('');
     const [error, setError] = useState('');
 
-    // ================= FETCH INITIAL DATA =================
     useEffect(() => {
         if (userRole) {
             fetchInitialData();
@@ -53,23 +58,27 @@ const CreateUser = () => {
     const fetchInitialData = async () => {
         setInitialLoading(true);
         try {
-            const [rolesRes, statesRes] = await Promise.all([
+            const [rolesRes, statesRes, gradesRes, deptsRes, desigsRes] = await Promise.all([
                 api.getRoles(),
-                api.getStates()
+                api.getStates(),
+                api.getDesignationGrades(),
+                api.getDesignationDepartments(),
+                api.getDesignations()
             ]);
 
             setRoles(rolesRes.data || []);
             setStates(statesRes.data || []);
+            setGrades(gradesRes.data || []);
+            setDepartments(deptsRes.data || []);
+            setDesignations(desigsRes.data || []);
 
         } catch (err) {
             console.error("FETCH ERROR:", err);
-            setRoles([]);
         } finally {
             setInitialLoading(false);
         }
     };
 
-    // ================= HANDLE CHANGE =================
     const handleChange = (e) => {
         const { name, value } = e.target;
 
@@ -87,9 +96,29 @@ const CreateUser = () => {
             fetchAreas(value);
             setForm(prev => ({ ...prev, area: '' }));
         }
+
+        if (name === 'grade_name') {
+            const gradeDepts = [];
+            designations.forEach(d => {
+                if (d.grade_name === value && !gradeDepts.includes(d.department_name)) {
+                    gradeDepts.push(d.department_name);
+                }
+            });
+            setFilteredDepartments(gradeDepts);
+            setFilteredDesignations([]);
+            setForm(prev => ({ ...prev, department_name: '', designation: '' }));
+        }
+
+        if (name === 'department_name') {
+            const grade = form.grade_name;
+            const gradeDeptDesigs = designations.filter(d => 
+                d.grade_name === grade && d.department_name === value
+            );
+            setFilteredDesignations(gradeDeptDesigs);
+            setForm(prev => ({ ...prev, designation: '' }));
+        }
     };
 
-    // ================= FETCH BRANCH =================
     const fetchBranches = async (stateId) => {
         if (!stateId) return;
         try {
@@ -100,7 +129,6 @@ const CreateUser = () => {
         }
     };
 
-    // ================= FETCH AREA =================
     const fetchAreas = async (branchId) => {
         if (!branchId) return;
         try {
@@ -111,7 +139,6 @@ const CreateUser = () => {
         }
     };
 
-    // ================= SUBMIT =================
     const handleSubmit = async () => {
         setError('');
         setSuccess('');
@@ -136,6 +163,9 @@ const CreateUser = () => {
                 last_name: '',
                 phone: '',
                 role: '',
+                grade_name: '',
+                department_name: '',
+                designation: '',
                 state: '',
                 branch: '',
                 area: ''
@@ -143,6 +173,8 @@ const CreateUser = () => {
 
             setBranches([]);
             setAreas([]);
+            setFilteredDepartments([]);
+            setFilteredDesignations([]);
 
         } catch (err) {
             console.error(err);
@@ -154,7 +186,7 @@ const CreateUser = () => {
     };
 
     return (
-        <Box sx={{ maxWidth: 800, margin: 'auto', mt: 3 }}>
+        <Box sx={{ maxWidth: 900, margin: 'auto', mt: 3 }}>
             <Card>
                 <CardContent>
 
@@ -166,7 +198,7 @@ const CreateUser = () => {
                     {success && <Alert severity="success">{success}</Alert>}
 
                     {initialLoading ? (
-                        <FormSkeleton fields={8} />
+                        <FormSkeleton fields={10} />
                     ) : (
                     <Grid container spacing={2} sx={{ mt: 1 }}>
 
@@ -185,6 +217,7 @@ const CreateUser = () => {
                                 fullWidth
                                 label="Email"
                                 name="email"
+                                type="email"
                                 value={form.email}
                                 onChange={handleChange}
                             />
@@ -230,7 +263,6 @@ const CreateUser = () => {
                             />
                         </Grid>
 
-                        {/* ROLE */}
                         <Grid item xs={12} md={6}>
                             <TextField
                                 select
@@ -252,14 +284,69 @@ const CreateUser = () => {
                             </TextField>
                         </Grid>
 
-                        {/* STATE */}
+                        <Grid item xs={12} md={6}>
+                            <TextField
+                                select
+                                fullWidth
+                                label="Grade"
+                                name="grade_name"
+                                value={form.grade_name || ''}
+                                onChange={handleChange}
+                            >
+                                <MenuItem value="">Select Grade</MenuItem>
+                                {grades.map((g) => (
+                                    <MenuItem key={g} value={g}>
+                                        {g}
+                                    </MenuItem>
+                                ))}
+                            </TextField>
+                        </Grid>
+
+                        <Grid item xs={12} md={6}>
+                            <TextField
+                                select
+                                fullWidth
+                                label="Department"
+                                name="department_name"
+                                value={form.department_name || ''}
+                                onChange={handleChange}
+                                disabled={!form.grade_name}
+                            >
+                                <MenuItem value="">Select Department</MenuItem>
+                                {filteredDepartments.map((d) => (
+                                    <MenuItem key={d} value={d}>
+                                        {d}
+                                    </MenuItem>
+                                ))}
+                            </TextField>
+                        </Grid>
+
+                        <Grid item xs={12} md={6}>
+                            <TextField
+                                select
+                                fullWidth
+                                label="Designation"
+                                name="designation"
+                                value={form.designation || ''}
+                                onChange={handleChange}
+                                disabled={!form.department_name}
+                            >
+                                <MenuItem value="">Select Designation</MenuItem>
+                                {filteredDesignations.map((d) => (
+                                    <MenuItem key={d.id} value={d.id}>
+                                        {d.designation_name}
+                                    </MenuItem>
+                                ))}
+                            </TextField>
+                        </Grid>
+
                         <Grid item xs={12} md={6}>
                             <TextField
                                 select
                                 fullWidth
                                 label="State (Optional)"
                                 name="state"
-                                value={form.state}
+                                value={form.state || ''}
                                 onChange={handleChange}
                             >
                                 <MenuItem value="">None</MenuItem>
@@ -271,15 +358,15 @@ const CreateUser = () => {
                             </TextField>
                         </Grid>
 
-                        {/* BRANCH */}
                         <Grid item xs={12} md={6}>
                             <TextField
                                 select
                                 fullWidth
                                 label="Branch (Optional)"
                                 name="branch"
-                                value={form.branch}
+                                value={form.branch || ''}
                                 onChange={handleChange}
+                                disabled={!form.state}
                             >
                                 <MenuItem value="">None</MenuItem>
                                 {branches.map((b) => (
@@ -290,15 +377,15 @@ const CreateUser = () => {
                             </TextField>
                         </Grid>
 
-                        {/* AREA */}
                         <Grid item xs={12} md={6}>
                             <TextField
                                 select
                                 fullWidth
                                 label="Area (Optional)"
                                 name="area"
-                                value={form.area}
+                                value={form.area || ''}
                                 onChange={handleChange}
+                                disabled={!form.branch}
                             >
                                 <MenuItem value="">None</MenuItem>
                                 {areas.map((a) => (
