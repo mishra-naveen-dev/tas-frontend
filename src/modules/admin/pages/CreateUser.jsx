@@ -15,6 +15,7 @@ import {
 import api from 'core/services/api';
 import { useAuth } from 'modules/auth/contexts/AuthContext.jsx';
 import { FormSkeleton } from 'shared/components/SkeletonLoader';
+import { getZones, getStates, getRegions, getBranches, getCenters, getCenter } from 'utils/stateHelper';
 
 const CreateUser = () => {
 
@@ -50,8 +51,11 @@ const CreateUser = () => {
         designation: '',
         grade_name: '',
         department_name: '',
+        zone: '',
         state: '',
+        region: '',
         branch: '',
+        center: '',
         area: ''
     });
 
@@ -61,8 +65,11 @@ const CreateUser = () => {
     const [designations, setDesignations] = useState([]);
     const [filteredDepartments, setFilteredDepartments] = useState([]);
     const [filteredDesignations, setFilteredDesignations] = useState([]);
+    const [zones, setZones] = useState([]);
     const [states, setStates] = useState([]);
+    const [regions, setRegions] = useState([]);
     const [branches, setBranches] = useState([]);
+    const [centers, setCenters] = useState([]);
     const [areas, setAreas] = useState([]);
 
     const [loading, setLoading] = useState(false);
@@ -370,9 +377,12 @@ const CreateUser = () => {
             
             setRoles(rolesRes.data || []);
             
+            const allZones = getZones().map(z => ({ code: z.name, name: z.name }));
+            setZones(allZones);
+            
             const allStates = (statesRes.data && statesRes.data.length > 0) 
                 ? statesRes.data 
-                : FALLBACK_STATES;
+                : getStates().map(s => ({ id: s.code, code: s.code, name: s.name, zone_name: '' }));
             setStates(allStates);
             
             const allDesignations = (desigsRes.data && desigsRes.data.length > 0) 
@@ -404,14 +414,50 @@ const CreateUser = () => {
             [name]: value
         }));
 
+        if (name === 'zone') {
+            const zoneStates = getStates(value).map(s => ({ id: s.code, code: s.code, name: s.name }));
+            setStates(zoneStates);
+            setForm(prev => ({ ...prev, zone: value, state: '', region: '', branch: '', center: '', area: '' }));
+            setRegions([]);
+            setBranches([]);
+            setCenters([]);
+            setAreas([]);
+        }
+
         if (name === 'state') {
-            fetchBranches(value);
-            setForm(prev => ({ ...prev, branch: '', area: '' }));
+            const stateRegions = getRegions(value, form.zone).map(r => ({ id: r.code, code: r.code, name: r.name }));
+            setRegions(stateRegions);
+            setForm(prev => ({ ...prev, state: value, region: '', branch: '', center: '', area: '' }));
+            setBranches([]);
+            setCenters([]);
+            setAreas([]);
+        }
+
+        if (name === 'region') {
+            const regionBranches = getBranches(form.state, value, form.zone).map(b => ({ id: b.code, code: b.code, name: b.name }));
+            setBranches(regionBranches);
+            setForm(prev => ({ ...prev, region: value, branch: '', center: '', area: '' }));
+            setCenters([]);
+            setAreas([]);
         }
 
         if (name === 'branch') {
-            fetchAreas(value);
-            setForm(prev => ({ ...prev, area: '' }));
+            const branch = branches.find(b => b.code === value);
+            if (branch?.centers) {
+                const branchCenters = getCenters(branch.centers).map(c => ({ id: c.code, code: c.code, name: c.name }));
+                setCenters(branchCenters);
+            }
+            setForm(prev => ({ ...prev, branch: value, center: '', area: '' }));
+            setAreas([]);
+        }
+
+        if (name === 'center') {
+            const center = getCenter(value);
+            if (center?.units) {
+                const centerUnits = getCenters([value]).flatMap(c => c.units.map(u => ({ id: u, code: u, name: u })));
+                setAreas(centerUnits);
+            }
+            setForm(prev => ({ ...prev, center: value, area: '' }));
         }
 
         if (name === 'grade_name') {
@@ -444,9 +490,9 @@ const CreateUser = () => {
                 setBranches(res.data);
             }
         } catch (err) {
-            console.warn('Branches API failed, using fallback');
-            const filtered = FALLBACK_BRANCHES.filter(b => b.state === parseInt(stateId));
-            setBranches(filtered);
+            console.warn('Branches API failed, using stateHelper');
+            const branches = getBranches(stateId, '');
+            setBranches(branches.map(b => ({ id: b.code, code: b.code, name: b.name })));
         }
     };
 
@@ -487,12 +533,19 @@ const CreateUser = () => {
                 designation: '',
                 grade_name: '',
                 department_name: '',
+                zone: '',
                 state: '',
+                region: '',
                 branch: '',
+                center: '',
                 area: ''
             });
 
+            setZones([]);
+            setStates([]);
+            setRegions([]);
             setBranches([]);
+            setCenters([]);
             setAreas([]);
             setFilteredDepartments([]);
             setFilteredDesignations([]);
@@ -665,15 +718,53 @@ const CreateUser = () => {
                             <TextField
                                 select
                                 fullWidth
-                                label="Zone / State"
-                                name="state"
-                                value={form.state || ''}
+                                label="Zone"
+                                name="zone"
+                                value={form.zone || ''}
                                 onChange={handleChange}
                             >
                                 <MenuItem value="">None</MenuItem>
+                                {zones.map((z) => (
+                                    <MenuItem key={z.code} value={z.code}>
+                                        {z.name}
+                                    </MenuItem>
+                                ))}
+                            </TextField>
+                        </Grid>
+
+                        <Grid item xs={12} md={6}>
+                            <TextField
+                                select
+                                fullWidth
+                                label="State"
+                                name="state"
+                                value={form.state || ''}
+                                onChange={handleChange}
+                                disabled={!form.zone}
+                            >
+                                <MenuItem value="">None</MenuItem>
                                 {states.map((s) => (
-                                    <MenuItem key={s.id} value={s.id}>
-                                        {s.zone_name ? `${s.zone_name} / ${s.name}` : s.name}
+                                    <MenuItem key={s.code} value={s.code}>
+                                        {s.name}
+                                    </MenuItem>
+                                ))}
+                            </TextField>
+                        </Grid>
+
+                        <Grid item xs={12} md={6}>
+                            <TextField
+                                select
+                                fullWidth
+                                label="Region"
+                                name="region"
+                                value={form.region || ''}
+                                onChange={handleChange}
+                                disabled={!form.state}
+                            >
+                                <MenuItem value="">None</MenuItem>
+                                {regions.map((r) => (
+                                    <MenuItem key={r.code} value={r.code}>
+                                        {r.name}
                                     </MenuItem>
                                 ))}
                             </TextField>
@@ -687,12 +778,12 @@ const CreateUser = () => {
                                 name="branch"
                                 value={form.branch || ''}
                                 onChange={handleChange}
-                                disabled={!form.state}
+                                disabled={!form.region}
                             >
                                 <MenuItem value="">None</MenuItem>
                                 {branches.map((b) => (
-                                    <MenuItem key={b.id} value={b.id}>
-                                        {b.name} ({b.region} - {b.center})
+                                    <MenuItem key={b.code} value={b.code}>
+                                        {b.name}
                                     </MenuItem>
                                 ))}
                             </TextField>
@@ -702,16 +793,35 @@ const CreateUser = () => {
                             <TextField
                                 select
                                 fullWidth
-                                label="Area"
-                                name="area"
-                                value={form.area || ''}
+                                label="Center"
+                                name="center"
+                                value={form.center || ''}
                                 onChange={handleChange}
                                 disabled={!form.branch}
                             >
                                 <MenuItem value="">None</MenuItem>
+                                {centers.map((c) => (
+                                    <MenuItem key={c.code} value={c.code}>
+                                        {c.name}
+                                    </MenuItem>
+                                ))}
+                            </TextField>
+                        </Grid>
+
+                        <Grid item xs={12} md={6}>
+                            <TextField
+                                select
+                                fullWidth
+                                label="Unit"
+                                name="area"
+                                value={form.area || ''}
+                                onChange={handleChange}
+                                disabled={!form.center}
+                            >
+                                <MenuItem value="">None</MenuItem>
                                 {areas.map((a) => (
-                                    <MenuItem key={a.id} value={a.id}>
-                                        {a.name} {a.unit ? `(${a.unit})` : ''}
+                                    <MenuItem key={a.code} value={a.code}>
+                                        {a.name}
                                     </MenuItem>
                                 ))}
                             </TextField>
