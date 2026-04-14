@@ -9,6 +9,7 @@ import { AuthProvider } from 'modules/auth/contexts/AuthContext';
 import ProtectedRoute from 'core/routes/ProtectedRoute';
 import Redirector from 'core/routes/Redirector';
 import AppLayout from 'core/layouts/AppLayout';
+import ErrorBoundary from 'shared/components/ErrorBoundary';
 
 import Loader from 'shared/components/Loader';
 import Unauthorized from 'shared/components/Unauthorized';
@@ -326,14 +327,16 @@ const AppRoutes = () => {
 // ================= MAIN APP =================
 const App = () => {
     return (
-        <ThemeProvider theme={theme}>
-            <CssBaseline />
+        <ErrorBoundary showDetails={process.env.NODE_ENV === 'development'}>
+            <ThemeProvider theme={theme}>
+                <CssBaseline />
 
-            <AuthProvider>
-                <AppRoutes />
-            </AuthProvider>
+                <AuthProvider>
+                    <AppRoutes />
+                </AuthProvider>
 
-        </ThemeProvider>
+            </ThemeProvider>
+        </ErrorBoundary>
     );
 };
 
