@@ -420,6 +420,22 @@ class ScalableAPI {
         return this.get('/organization/devices/', params);
     }
 
+    getUserDeviceSummary(userId) {
+        return this.get('/organization/devices/user_summary/', { params: { user_id: userId } });
+    }
+
+    removeDevice(deviceId) {
+        return this.delete(`/organization/devices/${deviceId}/remove_device/`);
+    }
+
+    removeAllUserDevices(userId) {
+        return this.post('/organization/devices/remove_user_devices/', { user_id: userId });
+    }
+
+    resetUserDevices(userId) {
+        return this.post('/organization/devices/reset_user_devices/', { user_id: userId });
+    }
+
     getPasswordExpiryList(params = {}) {
         return this.get('/auth/password-expiry/', params);
     }

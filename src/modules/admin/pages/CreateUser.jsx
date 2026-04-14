@@ -15,7 +15,7 @@ import {
 import api from 'core/services/api';
 import { useAuth } from 'modules/auth/contexts/AuthContext.jsx';
 import { FormSkeleton } from 'shared/components/SkeletonLoader';
-import { getZones, getStates, getRegions, getBranches, getCenters, getCenter } from '../../utils/stateHelper';
+import { getZones, getStates, getRegions, getBranches, getCenters, getCenter } from 'utils/stateHelper';
 
 const CreateUser = () => {
 
@@ -518,7 +518,69 @@ const CreateUser = () => {
         setLoading(true);
 
         try {
-            await api.createUser(form);
+            const userData = { ...form };
+            
+            console.log('Submitting userData:', userData);
+            console.log('Available designations:', designations);
+            
+            if (userData.designation) {
+                let desigInput = userData.designation;
+                
+                if (typeof desigInput !== 'string') {
+                    desigInput = String(desigInput);
+                }
+                desigInput = desigInput.trim();
+                
+                const desigNum = parseInt(desigInput);
+                console.log('Input designation:', desigInput, 'As number:', desigNum, 'Type was:', typeof userData.designation);
+                console.log('Looking in designations:', designations.slice(0, 3).map(d => ({id: d.id, typeId: typeof d.id, name: d.designation_name})));
+                
+                let selectedDesig = designations.find(d => {
+                    const idMatch = Number(d.id) === desigNum;
+                    const strMatch = String(d.id) === desigInput;
+                    return idMatch || strMatch;
+                });
+                
+                if (!selectedDesig) {
+                    selectedDesig = designations.find(d => d.designation_name && d.designation_name.toUpperCase() === desigInput.toUpperCase());
+                }
+                
+                console.log('Found:', selectedDesig);
+                if (selectedDesig) {
+                    userData.designation = selectedDesig.designation_name;
+                    console.log('OK - sending name:', selectedDesig.designation_name);
+                }
+            }
+            
+            if (userData.state) {
+                const stateInput = String(userData.state).trim();
+                const stateNum = parseInt(stateInput);
+                let selectedState = states.find(s => s.id === stateNum || String(s.id) === stateInput || s.code === stateInput);
+                if (selectedState) {
+                    userData.state = selectedState.code || selectedState.id || selectedState.name;
+                }
+            }
+            
+            if (userData.branch) {
+                const branchInput = String(userData.branch).trim();
+                const branchNum = parseInt(branchInput);
+                let selectedBranch = branches.find(b => b.id === branchNum || String(b.id) === branchInput);
+                if (selectedBranch) {
+                    userData.branch = selectedBranch.code || selectedBranch.id || selectedBranch.name;
+                }
+            }
+            
+            if (userData.area) {
+                const areaInput = String(userData.area).trim();
+                const areaNum = parseInt(areaInput);
+                let selectedArea = areas.find(a => a.id === areaNum || String(a.id) === areaInput);
+                if (selectedArea) {
+                    userData.area = selectedArea.code || selectedArea.id || selectedArea.name;
+                }
+            }
+            
+            console.log('Final userData:', userData);
+            await api.createUser(userData);
 
             setSuccess("User created successfully. Default password: Temp@123");
 
@@ -552,8 +614,25 @@ const CreateUser = () => {
 
         } catch (err) {
             console.error(err);
-
-            setError(JSON.stringify(err.response?.data, null, 2));
+            
+            const errorData = err.response?.data;
+            let errorMessage = '';
+            
+            if (errorData) {
+                for (const [key, value] of Object.entries(errorData)) {
+                    if (Array.isArray(value)) {
+                        errorMessage += `${key}: ${value.join(', ')}\n`;
+                    } else if (typeof value === 'object') {
+                        errorMessage += `${key}: ${JSON.stringify(value)}\n`;
+                    } else {
+                        errorMessage += `${key}: ${value}\n`;
+                    }
+                }
+            } else {
+                errorMessage = err.message || 'An error occurred';
+            }
+            
+            setError(errorMessage.trim());
         } finally {
             setLoading(false);
         }

@@ -104,6 +104,8 @@ const AdminDeviceManagement = () => {
     const [users, setUsers] = useState([]);
     const [resetDialog, setResetDialog] = useState({ open: false, user: null });
     const [resetSuccess, setResetSuccess] = useState(null);
+    const [deviceLimitDialog, setDeviceLimitDialog] = useState({ open: false, user: null, summary: null, loading: false });
+    const [removeDeviceDialog, setRemoveDeviceDialog] = useState({ open: false, device: null });
 
     const fetchDevices = useCallback(async () => {
         setLoading(true);
@@ -211,6 +213,51 @@ const AdminDeviceManagement = () => {
         } catch (err) {
             console.error('Failed to reset user devices:', err);
             alert(err.response?.data?.error || 'Failed to reset user devices');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleViewDeviceSummary = async (user) => {
+        setDeviceLimitDialog({ open: true, user, summary: null, loading: true });
+        try {
+            const res = await api.getUserDeviceSummary(user.id);
+            setDeviceLimitDialog({ open: true, user, summary: res.data, loading: false });
+        } catch (err) {
+            console.error('Failed to fetch device summary:', err);
+            alert('Failed to fetch device summary');
+            setDeviceLimitDialog({ open: false, user: null, summary: null, loading: false });
+        }
+    };
+
+    const handleRemoveDevice = async () => {
+        if (!removeDeviceDialog.device) return;
+        setActionLoading(true);
+        try {
+            await api.removeDevice(removeDeviceDialog.device.id);
+            setRemoveDeviceDialog({ open: false, device: null });
+            fetchDevices();
+            if (deviceLimitDialog.user) {
+                handleViewDeviceSummary(deviceLimitDialog.user);
+            }
+        } catch (err) {
+            console.error('Failed to remove device:', err);
+            alert(err.response?.data?.error || 'Failed to remove device');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleRemoveAllUserDevices = async () => {
+        if (!deviceLimitDialog.user) return;
+        setActionLoading(true);
+        try {
+            await api.removeAllUserDevices(deviceLimitDialog.user.id);
+            setDeviceLimitDialog({ open: false, user: null, summary: null, loading: false });
+            fetchDevices();
+        } catch (err) {
+            console.error('Failed to remove all user devices:', err);
+            alert(err.response?.data?.error || 'Failed to remove all user devices');
         } finally {
             setActionLoading(false);
         }
@@ -442,6 +489,16 @@ const AdminDeviceManagement = () => {
                                     </TableCell>
                                     <TableCell>
                                         <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                            <Tooltip title="View Device Limits Summary">
+                                                <IconButton
+                                                    size="small"
+                                                    color="info"
+                                                    onClick={() => handleViewDeviceSummary({ id: device.user, username: device.username })}
+                                                >
+                                                    <PhoneIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+
                                             <Tooltip title="View Details">
                                                 <IconButton
                                                     size="small"
@@ -755,6 +812,136 @@ const AdminDeviceManagement = () => {
                         disabled={actionLoading || !resetDialog.user || !!resetSuccess}
                     >
                         {actionLoading ? <CircularProgress size={24} /> : 'Reset Devices'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog
+                open={deviceLimitDialog.open}
+                onClose={() => setDeviceLimitDialog({ open: false, user: null, summary: null, loading: false })}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <PhoneIcon color="primary" />
+                    Device Summary - {deviceLimitDialog.user?.username}
+                </DialogTitle>
+                <DialogContent>
+                    {deviceLimitDialog.loading ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                            <CircularProgress />
+                        </Box>
+                    ) : deviceLimitDialog.summary ? (
+                        <Box>
+                            <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+                                <Paper sx={{ p: 2, flex: 1, textAlign: 'center', backgroundColor: '#e3f2fd' }}>
+                                    <Typography variant="h4" color="primary">{deviceLimitDialog.summary.device_limits?.current_desktop || 0}</Typography>
+                                    <Typography variant="caption">Desktop</Typography>
+                                    <Typography variant="caption" display="block" color="text.secondary">
+                                        ({deviceLimitDialog.summary.device_limits?.desktop_available || 0} available)
+                                    </Typography>
+                                </Paper>
+                                <Paper sx={{ p: 2, flex: 1, textAlign: 'center', backgroundColor: '#f3e5f5' }}>
+                                    <Typography variant="h4" color="secondary">{deviceLimitDialog.summary.device_limits?.current_mobile || 0}</Typography>
+                                    <Typography variant="caption">Mobile</Typography>
+                                    <Typography variant="caption" display="block" color="text.secondary">
+                                        ({deviceLimitDialog.summary.device_limits?.mobile_available || 0} available)
+                                    </Typography>
+                                </Paper>
+                                <Paper sx={{ p: 2, flex: 1, textAlign: 'center', backgroundColor: '#e8f5e9' }}>
+                                    <Typography variant="h4" color="success.main">{deviceLimitDialog.summary.device_status?.approved || 0}</Typography>
+                                    <Typography variant="caption">Approved</Typography>
+                                </Paper>
+                                <Paper sx={{ p: 2, flex: 1, textAlign: 'center', backgroundColor: '#fff3e0' }}>
+                                    <Typography variant="h4" color="warning.main">{deviceLimitDialog.summary.device_status?.pending || 0}</Typography>
+                                    <Typography variant="caption">Pending</Typography>
+                                </Paper>
+                            </Box>
+
+                            <Typography variant="subtitle2" sx={{ mb: 1 }}>Registered Devices</Typography>
+                            <TableContainer component={Paper} variant="outlined">
+                                <Table size="small">
+                                    <TableHead>
+                                        <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                                            <TableCell><strong>Device</strong></TableCell>
+                                            <TableCell><strong>Platform</strong></TableCell>
+                                            <TableCell><strong>Status</strong></TableCell>
+                                            <TableCell><strong>Last Active</strong></TableCell>
+                                            <TableCell><strong>Actions</strong></TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {deviceLimitDialog.summary.devices?.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={5} sx={{ textAlign: 'center' }}>No devices</TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            deviceLimitDialog.summary.devices?.map((dev) => (
+                                                <TableRow key={dev.id}>
+                                                    <TableCell>{dev.device_name || dev.device_id}</TableCell>
+                                                    <TableCell>
+                                                        <Chip label={dev.platform} size="small" variant="outlined" />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Chip 
+                                                            label={dev.status} 
+                                                            size="small" 
+                                                            color={dev.status === 'APPROVED' ? 'success' : dev.status === 'PENDING' ? 'warning' : 'error'} 
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell>{formatDate(dev.last_active)}</TableCell>
+                                                    <TableCell>
+                                                        <Tooltip title="Remove Device">
+                                                            <IconButton 
+                                                                size="small" 
+                                                                color="error"
+                                                                onClick={() => setRemoveDeviceDialog({ open: true, device: dev })}
+                                                            >
+                                                                <DeleteSweep fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        </Box>
+                    ) : null}
+                </DialogContent>
+                <DialogActions>
+                    <Button 
+                        onClick={() => handleRemoveAllUserDevices()}
+                        color="error"
+                        variant="outlined"
+                        disabled={actionLoading || !deviceLimitDialog.summary?.devices?.length}
+                    >
+                        Remove All Devices
+                    </Button>
+                    <Button onClick={() => setDeviceLimitDialog({ open: false, user: null, summary: null, loading: false })}>
+                        Close
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog
+                open={removeDeviceDialog.open}
+                onClose={() => !actionLoading && setRemoveDeviceDialog({ open: false, device: null })}
+            >
+                <DialogTitle>Remove Device</DialogTitle>
+                <DialogContent>
+                    <Typography>
+                        Are you sure you want to remove device <strong>{removeDeviceDialog.device?.device_name || removeDeviceDialog.device?.device_id}</strong>?
+                        The user will be able to login from a new device.
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setRemoveDeviceDialog({ open: false, device: null })} disabled={actionLoading}>
+                        Cancel
+                    </Button>
+                    <Button onClick={handleRemoveDevice} color="error" variant="contained" disabled={actionLoading}>
+                        {actionLoading ? <CircularProgress size={24} /> : 'Remove'}
                     </Button>
                 </DialogActions>
             </Dialog>
