@@ -58,20 +58,27 @@ const MapView = ({ punches = [] }) => {
             }
 
             try {
+                // Use chronological order - sequential route (not optimized)
                 const coords = validPunches
                     .map(p => `${p.longitude},${p.latitude}`)
                     .join(';');
 
-                const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
+                // Use 'route' instead of Trip for sequential routing
+                //overview=simplified gives cleaner path
+                const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true`;
 
                 const res = await fetch(url);
                 const data = await res.json();
 
-                const routeCoords = data.routes[0].geometry.coordinates.map(
-                    ([lng, lat]) => [lat, lng]
-                );
-
-                setRoutePath(routeCoords);
+                if (data.routes && data.routes[0]) {
+                    const routeCoords = data.routes[0].geometry.coordinates.map(
+                        ([lng, lat]) => [lat, lng]
+                    );
+                    setRoutePath(routeCoords);
+                } else {
+                    // Fallback to straight line if no route
+                    setRoutePath(validPunches.map(p => [p.latitude, p.longitude]));
+                }
 
             } catch (err) {
                 console.error("Route API failed, fallback:", err);
@@ -112,6 +119,30 @@ const MapView = ({ punches = [] }) => {
 
     // ================= DEFAULT =================
     const defaultCenter = [23.0225, 72.5714];
+
+    // Debug info - show in console
+    useEffect(() => {
+        if (validPunches.length > 0) {
+            console.log('=== Map Debug ===');
+            console.log('Punches:', validPunches.map(p => ({
+                lat: p.latitude,
+                lng: p.longitude,
+                distance: p.distance_from_last,
+                time: p.punched_at
+            })));
+            const total = validPunches.reduce((sum, p) => sum + (parseFloat(p.distance_from_last) || 0), 0);
+            console.log('Total Distance from punches:', total.toFixed(3), 'km');
+        }
+    }, [validPunches]);
+
+    // Calculate cumulative distance from punch data
+    const cumulativeDistance = useMemo(() => {
+        let total = 0;
+        return validPunches.map(p => {
+            total += parseFloat(p.distance_from_last) || 0;
+            return total;
+        });
+    }, [validPunches]);
 
     const currentPosition =
         routePath[playIndex] || defaultCenter;
@@ -156,17 +187,21 @@ const MapView = ({ punches = [] }) => {
                 />
 
                 {/* ORIGINAL PUNCH POINTS */}
-                {validPunches.map((p, i) => (
+                {validPunches.map((p, i) => {
+                    const cumDist = cumulativeDistance[i] || 0;
+                    return (
                     <Marker
                         key={i}
                         position={[p.latitude, p.longitude]}
                     >
                         <Popup>
-                            Point {i + 1} <br />
-                            {new Date(p.punched_at).toLocaleString()}
+                            <strong>Point {i + 1}</strong><br />
+                            Time: {new Date(p.punched_at).toLocaleString()}<br />
+                            Distance from prev: {p.distance_from_last ? `${p.distance_from_last} km` : 'Start'}<br />
+                            Cumulative: {cumDist.toFixed(3)} km
                         </Popup>
                     </Marker>
-                ))}
+                )})}
 
                 {/* MOVING MARKER */}
                 {routePath.length > 0 && (
