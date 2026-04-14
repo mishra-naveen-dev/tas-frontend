@@ -1,5 +1,14 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback, Suspense } from 'react';
-import { Grid, Card, CardContent, Typography, Alert, Box, Divider, Table, TableHead, TableRow, TableCell, TableBody, Chip, Skeleton } from '@mui/material';
+import { Grid, Card, CardContent, Typography, Alert, Box, Divider, Table, TableHead, TableRow, TableCell, TableBody, Chip, Skeleton, LinearProgress, IconButton, Tooltip } from '@mui/material';
+import { 
+    DirectionsWalk as WalkIcon, 
+    LocationOn as LocationIcon,
+    Timeline as RouteIcon,
+    MyLocation as StartIcon,
+    Flag as EndIcon,
+    Refresh as RefreshIcon,
+    PlayArrow as TrackIcon
+} from '@mui/icons-material';
 import api from 'core/services/api';
 import DistanceChart from 'modules/attendance/components/DistanceChart';
 import AllowanceTrendChart from 'modules/employee/components/AllowanceTrendChart';
@@ -18,6 +27,8 @@ const EmployeeDashboard = () => {
     const [disbursement, setDisbursement] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [routeData, setRouteData] = useState(null);
+    const [routeLoading, setRouteLoading] = useState(false);
     const intervalRef = useRef(null);
     const isFetching = useRef(false);
 
@@ -68,6 +79,24 @@ const EmployeeDashboard = () => {
         disbursement: safeDistance(disbursement),
     }), [data, disbursement]);
 
+    const fetchRouteData = useCallback(async () => {
+        setRouteLoading(true);
+        try {
+            const date = new Date().toISOString().split('T')[0];
+            const response = await api.getDailyRoute(user?.id, { date });
+            setRouteData(response.data);
+        } catch (err) {
+            console.error('Route fetch error:', err);
+            setRouteData(null);
+        } finally {
+            setRouteLoading(false);
+        }
+    }, [user?.id]);
+
+    useEffect(() => {
+        fetchRouteData();
+    }, [fetchRouteData]);
+
     const chartData = useMemo(() => data?.weekly_data?.length ? data.weekly_data : [], [data]);
     const allowanceChartData = useMemo(() => allowances.map(a => ({ day: new Date(a.travel_date).toLocaleDateString(), amount: safe(a.total_amount), distance: safe(a.total_distance) })), [allowances]);
     const latestPunches = useMemo(() => punches.slice(0, 8), [punches]);
@@ -97,6 +126,92 @@ const EmployeeDashboard = () => {
                         </CardContent></Card>
                     </Grid>
                 ))}
+
+                <Grid item xs={12}>
+                    <Card sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+                        <CardContent>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                    <RouteIcon sx={{ fontSize: 40 }} />
+                                    <Box>
+                                        <Typography variant="h6">Today's Route Tracking</Typography>
+                                        <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                                            {routeData?.total_sessions || 0} visits • {routeData?.total_points || 0} location points
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                                <Tooltip title="Refresh Route">
+                                    <IconButton onClick={fetchRouteData} sx={{ color: 'white' }}>
+                                        <RefreshIcon />
+                                    </IconButton>
+                                </Tooltip>
+                            </Box>
+
+                            {routeLoading ? (
+                                <LinearProgress sx={{ mt: 2 }} />
+                            ) : routeData?.route?.length > 0 ? (
+                                <Box sx={{ mt: 2 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                                        <Chip 
+                                            icon={<StartIcon />} 
+                                            label={routeData.route[0]?.lat ? 'Start Point' : 'No Start'} 
+                                            size="small" 
+                                            sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
+                                        />
+                                        <Box sx={{ flex: 1, height: 2, bgcolor: 'rgba(255,255,255,0.3)', borderRadius: 1 }} />
+                                        <Chip 
+                                            icon={<EndIcon />} 
+                                            label={routeData.route[routeData.route.length - 1]?.lat ? `End (${routeData.route.length - 1} stops)` : 'No End'} 
+                                            size="small"
+                                            sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }}
+                                        />
+                                    </Box>
+
+                                    <Grid container spacing={2}>
+                                        <Grid item xs={4}>
+                                            <Box sx={{ bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 1, p: 1.5, textAlign: 'center' }}>
+                                                <WalkIcon />
+                                                <Typography variant="h5">{routeData?.total_distance?.toFixed(2) || '0.00'}</Typography>
+                                                <Typography variant="caption">Total Distance (km)</Typography>
+                                            </Box>
+                                        </Grid>
+                                        <Grid item xs={4}>
+                                            <Box sx={{ bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 1, p: 1.5, textAlign: 'center' }}>
+                                                <LocationIcon />
+                                                <Typography variant="h5">{routeData?.total_sessions || 0}</Typography>
+                                                <Typography variant="caption">Total Visits</Typography>
+                                            </Box>
+                                        </Grid>
+                                        <Grid item xs={4}>
+                                            <Box sx={{ bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 1, p: 1.5, textAlign: 'center' }}>
+                                                <TrackIcon />
+                                                <Typography variant="h5">{routeData?.total_points || 0}</Typography>
+                                                <Typography variant="caption">GPS Points</Typography>
+                                            </Box>
+                                        </Grid>
+                                    </Grid>
+
+                                    {routeData.sessions?.length > 0 && (
+                                        <Box sx={{ mt: 2 }}>
+                                            <Typography variant="caption" sx={{ display: 'block', mb: 1 }}>Session Details:</Typography>
+                                            {routeData.sessions.slice(0, 3).map((session, idx) => (
+                                                <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 1, p: 1, mb: 0.5 }}>
+                                                    <Typography variant="body2">Session {idx + 1}</Typography>
+                                                    <Typography variant="body2">{session.total_distance?.toFixed(2) || '0'} km • {session.point_count || 0} points</Typography>
+                                                </Box>
+                                            ))}
+                                        </Box>
+                                    )}
+                                </Box>
+                            ) : (
+                                <Box sx={{ mt: 2, textAlign: 'center', py: 3, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 1 }}>
+                                    <Typography variant="body2">No route data for today</Typography>
+                                    <Typography variant="caption" sx={{ opacity: 0.8 }}>Punch in to start tracking your route</Typography>
+                                </Box>
+                            )}
+                        </CardContent>
+                    </Card>
+                </Grid>
 
                 <Grid item xs={12} md={6}>
                     <Card><CardContent>
