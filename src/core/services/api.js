@@ -16,13 +16,42 @@ const getAccessToken = () => sessionStorage.getItem('access_token');
 const getRefreshToken = () => sessionStorage.getItem('refresh_token');
 
 const getDeviceId = () => {
-    let deviceId = localStorage.getItem('device_id');
+    let deviceId = localStorage.getItem('device_fingerprint');
     if (!deviceId) {
-        deviceId = 'web_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        localStorage.setItem('device_id', deviceId);
+        // Generate stable device fingerprint based on browser info
+        const nav = window.navigator;
+        const screen = window.screen;
+        const fingerprint = [
+            nav.userAgent,
+            nav.language,
+            nav.platform,
+            screen.width,
+            screen.height,
+            screen.colorDepth,
+            new Date().getTimezoneOffset()
+        ].join('|');
+        
+        // Simple hash function
+        let hash = 0;
+        for (let i = 0; i < fingerprint.length; i++) {
+            const char = fingerprint.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+        }
+        
+        deviceId = 'web_' + Math.abs(hash).toString(16) + '_' + Date.now().toString(36).substr(0, 8);
+        localStorage.setItem('device_fingerprint', deviceId);
     }
     return deviceId;
 };
+
+// Cleanup old device_id on init
+(function cleanupOldDeviceId() {
+    const oldId = localStorage.getItem('device_id');
+    if (oldId) {
+        localStorage.removeItem('device_id');
+    }
+})();
 
 const processQueue = (error, token = null) => {
     failedQueue.forEach(prom => {
@@ -405,7 +434,7 @@ class ScalableAPI {
     }
 
     revokeDevice(deviceId) {
-        return this.post('/organization/devices/revoke_device/', { device_id: deviceId });
+        return this.post('/organization/devices/revoke_device/', { session_device_id: deviceId });
     }
 
     revokeAllOtherDevices() {
