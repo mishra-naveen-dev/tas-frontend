@@ -15,23 +15,43 @@ let failedQueue = [];
 const getAccessToken = () => sessionStorage.getItem('access_token');
 const getRefreshToken = () => sessionStorage.getItem('refresh_token');
 
+// Cleanup old device_id on init
+(function cleanupOldDeviceId() {
+    // Remove old session-based device_id if exists
+    const oldId = sessionStorage.getItem('device_id');
+    if (oldId) {
+        sessionStorage.removeItem('device_id');
+    }
+    // Also check localStorage for any old keys
+    const oldLocalId = localStorage.getItem('device_id');
+    if (oldLocalId) {
+        localStorage.removeItem('device_id');
+    }
+})();
+
 const getDeviceId = () => {
-    let deviceId = sessionStorage.getItem('device_fingerprint');
+    // Use localStorage for persistent device ID (survives browser close)
+    let deviceId = localStorage.getItem('device_fingerprint');
+    
     if (!deviceId) {
         // Generate stable device fingerprint based on browser info
         const nav = window.navigator;
         const screen = window.screen;
+        
+        // Combine multiple stable browser properties
         const fingerprint = [
             nav.userAgent,
             nav.language,
             nav.platform,
+            nav.hardwareConcurrency || '1',
             screen.width,
             screen.height,
             screen.colorDepth,
-            new Date().getTimezoneOffset()
+            screen.pixelDepth,
+            Intl.DateTimeFormat().resolvedOptions().timeZone
         ].join('|');
         
-        // Simple hash function
+        // Simple hash function - deterministic (no Date.now())
         let hash = 0;
         for (let i = 0; i < fingerprint.length; i++) {
             const char = fingerprint.charCodeAt(i);
@@ -39,9 +59,13 @@ const getDeviceId = () => {
             hash = hash & hash;
         }
         
-        deviceId = 'web_' + Math.abs(hash).toString(16) + '_' + Date.now().toString(36).substr(0, 8);
-        sessionStorage.setItem('device_fingerprint', deviceId);
+        // Stable ID - same browser = same ID
+        deviceId = 'web_' + Math.abs(hash).toString(16);
+        
+        // Store permanently in localStorage
+        localStorage.setItem('device_fingerprint', deviceId);
     }
+    
     return deviceId;
 };
 
@@ -285,7 +309,7 @@ class ScalableAPI {
         sessionStorage.removeItem('device_info');
         CACHE.invalidate();
         
-        // Call logout API
+        // Call logout API - keep device fingerprint for re-login!
         try {
             const deviceId = localStorage.getItem('device_fingerprint');
             if (deviceId) {
