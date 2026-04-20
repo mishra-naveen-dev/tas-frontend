@@ -16,7 +16,7 @@ const getAccessToken = () => sessionStorage.getItem('access_token');
 const getRefreshToken = () => sessionStorage.getItem('refresh_token');
 
 const getDeviceId = () => {
-    let deviceId = localStorage.getItem('device_fingerprint');
+    let deviceId = sessionStorage.getItem('device_fingerprint');
     if (!deviceId) {
         // Generate stable device fingerprint based on browser info
         const nav = window.navigator;
@@ -40,18 +40,10 @@ const getDeviceId = () => {
         }
         
         deviceId = 'web_' + Math.abs(hash).toString(16) + '_' + Date.now().toString(36).substr(0, 8);
-        localStorage.setItem('device_fingerprint', deviceId);
+        sessionStorage.setItem('device_fingerprint', deviceId);
     }
     return deviceId;
 };
-
-// Cleanup old device_id on init
-(function cleanupOldDeviceId() {
-    const oldId = localStorage.getItem('device_id');
-    if (oldId) {
-        localStorage.removeItem('device_id');
-    }
-})();
 
 const processQueue = (error, token = null) => {
     failedQueue.forEach(prom => {
@@ -295,7 +287,7 @@ class ScalableAPI {
         
         // Call logout API
         try {
-            const deviceId = localStorage.getItem('device_id');
+            const deviceId = localStorage.getItem('device_fingerprint');
             if (deviceId) {
                 axios.post(`${AUTH_URL}/logout/`, {}, {
                     headers: {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useAuth } from 'modules/auth/contexts/AuthContext.jsx';
 import {
     Box,
     Typography,
@@ -91,6 +92,8 @@ const getStatusIcon = (status) => {
 };
 
 const AdminDeviceManagement = () => {
+    const { userRole } = useAuth();
+    const isSuperAdmin = userRole === 'SUPER_ADMIN';
     const [devices, setDevices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -393,7 +396,7 @@ const AdminDeviceManagement = () => {
                         <MenuItem value="IOS">iOS</MenuItem>
                     </Select>
                 </FormControl>
-                {activeTab === 1 && pendingCount > 1 && (
+                {activeTab === 1 && pendingCount > 1 && isSuperAdmin && (
                     <Button
                         variant="contained"
                         color="success"
@@ -410,18 +413,23 @@ const AdminDeviceManagement = () => {
                     <TableHead>
                         <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
                             <TableCell><strong>User</strong></TableCell>
+                            <TableCell><strong>Role</strong></TableCell>
                             <TableCell><strong>Device</strong></TableCell>
+                            <TableCell><strong>Device ID</strong></TableCell>
                             <TableCell><strong>Platform</strong></TableCell>
                             <TableCell><strong>Browser / OS</strong></TableCell>
+                            <TableCell><strong>IP Address</strong></TableCell>
                             <TableCell><strong>Status</strong></TableCell>
+                            <TableCell><strong>Created</strong></TableCell>
                             <TableCell><strong>Last Active</strong></TableCell>
+                            <TableCell><strong>Approved By</strong></TableCell>
                             <TableCell><strong>Actions</strong></TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
                         {filteredDevices.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={7} sx={{ textAlign: 'center', py: 3 }}>
+                                <TableCell colSpan={12} sx={{ textAlign: 'center', py: 3 }}>
                                     <Typography color="text.secondary">No devices found</Typography>
                                 </TableCell>
                             </TableRow>
@@ -436,7 +444,7 @@ const AdminDeviceManagement = () => {
                                                 </Tooltip>
                                             )}
                                             <Box>
-                                                <Typography variant="body2">
+                                                <Typography variant="body2" fontWeight="bold">
                                                     {device.username}
                                                 </Typography>
                                                 <Typography variant="caption" color="text.secondary">
@@ -444,6 +452,9 @@ const AdminDeviceManagement = () => {
                                                 </Typography>
                                             </Box>
                                         </Box>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Chip label={device.user_role || 'N/A'} size="small" variant="outlined" />
                                     </TableCell>
                                     <TableCell>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -459,11 +470,12 @@ const AdminDeviceManagement = () => {
                                         </Box>
                                     </TableCell>
                                     <TableCell>
-                                        <Chip
-                                            label={device.platform}
-                                            size="small"
-                                            variant="outlined"
-                                        />
+                                        <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
+                                            {device.device_id ? device.device_id.substring(0, 25) + (device.device_id.length > 25 ? '...' : '') : 'N/A'}
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Chip label={device.platform} size="small" variant="outlined" />
                                     </TableCell>
                                     <TableCell>
                                         <Typography variant="caption">
@@ -472,6 +484,11 @@ const AdminDeviceManagement = () => {
                                         <br />
                                         <Typography variant="caption" color="text.secondary">
                                             {device.os} {device.os_version}
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
+                                            {device.ip_address || 'N/A'}
                                         </Typography>
                                     </TableCell>
                                     <TableCell>
@@ -484,7 +501,17 @@ const AdminDeviceManagement = () => {
                                     </TableCell>
                                     <TableCell>
                                         <Typography variant="caption">
-                                            {formatDate(device.last_active)}
+                                            {device.created_at ? formatDate(device.created_at) : 'N/A'}
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography variant="caption">
+                                            {device.last_active ? formatDate(device.last_active) : 'N/A'}
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography variant="caption">
+                                            {device.approved_by || 'Auto'}
                                         </Typography>
                                     </TableCell>
                                     <TableCell>
@@ -508,7 +535,7 @@ const AdminDeviceManagement = () => {
                                                 </IconButton>
                                             </Tooltip>
 
-                                            {device.status === 'PENDING' && (
+                                            {device.status === 'PENDING' && isSuperAdmin && (
                                                 <>
                                                     <Tooltip title="Approve">
                                                         <IconButton
@@ -531,7 +558,7 @@ const AdminDeviceManagement = () => {
                                                 </>
                                             )}
 
-                                            {device.status === 'APPROVED' && (
+                                            {device.status === 'APPROVED' && isSuperAdmin && (
                                                 <Tooltip title="Block">
                                                     <IconButton
                                                         size="small"
@@ -543,7 +570,7 @@ const AdminDeviceManagement = () => {
                                                 </Tooltip>
                                             )}
 
-                                            {(device.status === 'BLOCKED' || device.status === 'REJECTED') && (
+                                            {(device.status === 'BLOCKED' || device.status === 'REJECTED') && isSuperAdmin && (
                                                 <Tooltip title="Unblock Device">
                                                     <IconButton
                                                         size="small"
@@ -897,7 +924,7 @@ const AdminDeviceManagement = () => {
                                                                 color="error"
                                                                 onClick={() => setRemoveDeviceDialog({ open: true, device: dev })}
                                                             >
-                                                                <DeleteSweep fontSize="small" />
+                                                                <ResetIcon fontSize="small" />
                                                             </IconButton>
                                                         </Tooltip>
                                                     </TableCell>

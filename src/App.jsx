@@ -174,7 +174,7 @@ const AppRoutes = () => {
                 <Route
                     path="/admin/create-user"
                     element={
-                        <ProtectedRoute requiredRoles={['ADMIN', 'SUPER_ADMIN']}>
+                        <ProtectedRoute requiredRoles={['SUPER_ADMIN']}>
                             <AppLayout>
                                 <CreateUser />
                             </AppLayout>

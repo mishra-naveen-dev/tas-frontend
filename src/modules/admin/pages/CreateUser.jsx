@@ -61,7 +61,7 @@ const CreateUser = () => {
 
     const [roles, setRoles] = useState([]);
     const [grades, setGrades] = useState([]);
-    const [departments, setDepartments] = useState([]);
+    const [_departments, setDepartments] = useState([]);
     const [designations, setDesignations] = useState([]);
     const [filteredDepartments, setFilteredDepartments] = useState([]);
     const [filteredDesignations, setFilteredDesignations] = useState([]);
@@ -284,7 +284,7 @@ const CreateUser = () => {
             { id: 194, grade_name: 'Manager', designation_name: 'Zonal Head', department_name: 'OPERATIONS' },
         ];
 
-        const FALLBACK_STATES = [
+        const _FALLBACK_STATES = [
             { id: 1, code: 'MP', name: 'Madhya Pradesh', zone_name: 'Central_Zone' },
             { id: 2, code: 'UP', name: 'Uttar Pradesh', zone_name: 'NORTH EAST' },
             { id: 3, code: 'RJ', name: 'Rajasthan', zone_name: 'South West' },
@@ -298,7 +298,7 @@ const CreateUser = () => {
             { id: 11, code: 'HR', name: 'Haryana', zone_name: 'NORTH EAST' },
         ];
 
-        const FALLBACK_BRANCHES = [
+const _FALLBACK_BRANCHES = [
             { id: 1, state: 1, name: 'Bhopal', region: 'Bhopal Region', center: 'Bhopal Center' },
             { id: 2, state: 1, name: 'Indore', region: 'Indore Region', center: 'Indore Center' },
             { id: 3, state: 1, name: 'Gwalior', region: 'Gwalior Region', center: 'Gwalior Center' },
@@ -333,7 +333,7 @@ const CreateUser = () => {
             { id: 32, state: 11, name: 'Panipat', region: 'Panipat Region', center: 'Panipat Center' },
         ];
 
-        const FALLBACK_AREAS = [
+        const _FALLBACK_AREAS = [
             { id: 1, branch: 1, name: 'MP Zone 1', unit: 'Unit A' },
             { id: 2, branch: 1, name: 'MP Zone 2', unit: 'Unit B' },
             { id: 3, branch: 2, name: 'Indore Zone 1', unit: 'Unit A' },
@@ -482,7 +482,7 @@ const CreateUser = () => {
         }
     };
 
-    const fetchBranches = async (stateId) => {
+    const _fetchBranches = async (stateId) => {
         if (!stateId) return;
         try {
             const res = await api.getBranches(stateId);
@@ -496,7 +496,7 @@ const CreateUser = () => {
         }
     };
 
-    const fetchAreas = async (branchId) => {
+    const _fetchAreas = async (branchId) => {
         if (!branchId) return;
         try {
             const res = await api.getAreas(branchId);
