@@ -343,6 +343,7 @@ class ScalableAPI {
     }
 
 logout() {
+        // Clear tokens first
         sessionStorage.removeItem('access_token');
         sessionStorage.removeItem('refresh_token');
         sessionStorage.removeItem('user');
@@ -350,20 +351,23 @@ logout() {
         sessionStorage.removeItem('device_info');
         CACHE.invalidate();
         
-        // Call logout API - keep device fingerprint for re-login!
-        try {
-            const deviceId = getApiDeviceId();
-            if (deviceId) {
-                axios.post(`${AUTH_URL}/logout/`, {}, {
-                    headers: {
-                        'X-DEVICE-ID': deviceId,
-                        'X-PLATFORM': PLATFORM,
-                    }
-                }).catch(() => {});
-            }
-        } catch (e) {}
-        
-        window.location.replace('/#/login');
+        // Try to call logout API silently
+        const deviceId = getApiDeviceId();
+        if (deviceId && navigator.onLine) {
+            axios.post(`${AUTH_URL}/logout/`, {}, {
+                headers: {
+                    'X-DEVICE-ID': deviceId,
+                    'X-PLATFORM': PLATFORM,
+                }
+            }).then(() => {
+                window.location.replace('/#/login');
+            }).catch(() => {
+                window.location.replace('/#/login');
+            });
+        } else {
+            // If offline or no device, redirect immediately
+            window.location.replace('/#/login');
+        }
     }
     
     getDeviceId() {
@@ -712,6 +716,13 @@ logout() {
 
     getAddressDetails(placeId) {
         return this.get(`/attendance/address/details/${placeId}/`);
+    }
+
+    calculateDistance(fromAddress, toAddress) {
+        return this.post('/attendance/address/calculate-distance/', {
+            from_address: fromAddress,
+            to_address: toAddress
+        });
     }
 
     // Designation Master

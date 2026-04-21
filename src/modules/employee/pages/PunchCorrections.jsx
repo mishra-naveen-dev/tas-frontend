@@ -31,6 +31,7 @@ import {
     Delete as DeleteIcon,
     ArrowUpward as ArrowUpIcon,
     ArrowDownward as ArrowDownIcon,
+    Navigation as NavigationIcon,
 } from '@mui/icons-material';
 import api from 'core/services/api';
 import { TableSkeleton } from 'shared/components/SkeletonLoader';
@@ -50,6 +51,7 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
         pincode: '',
         place_id: '',
         to_address: '',
+        to_pincode: '',
         punchMode: 'single', // 'single' or 'sequence'
         punch_sequence: [],
         reason: '',
@@ -58,6 +60,9 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [addressLoading, setAddressLoading] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [calculatingDistance, setCalculatingDistance] = useState(false);
+    const [calculatedDistance, setCalculatedDistance] = useState(null);
+    const [distanceError, setDistanceError] = useState('');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [fieldErrors, setFieldErrors] = useState({});
@@ -76,14 +81,30 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
         }
         
         if (name === 'from_address') {
-            if (form.punchMode === 'single' && !value && !form.pincode) {
-                errors.from_address = 'Address or pincode is required';
+            if (form.punchMode === 'single' && !value) {
+                errors.from_address = 'From address is required';
+            }
+        }
+        
+        if (name === 'to_address') {
+            if (form.punchMode === 'single' && !value) {
+                errors.to_address = 'To address is required';
             }
         }
         
         if (name === 'pincode') {
-            if (value && !/^\d{6}$/.test(value)) {
+            if (form.punchMode === 'single' && form.from_address && !value) {
+                errors.pincode = 'Pincode is required when address is provided';
+            } else if (value && !/^\d{6}$/.test(value)) {
                 errors.pincode = 'Pincode must be 6 digits';
+            }
+        }
+        
+        if (name === 'to_pincode') {
+            if (form.punchMode === 'single' && form.to_address && !value) {
+                errors.to_pincode = 'To pincode is required when to address is provided';
+            } else if (value && !/^\d{6}$/.test(value)) {
+                errors.to_pincode = 'To pincode must be 6 digits';
             }
         }
         
@@ -98,8 +119,16 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setForm(prev => ({ ...prev, [name]: value }));
-        
+        setForm(prev => {
+            const newForm = { ...prev, [name]: value };
+            // Clear distance when addresses change
+            if (name === 'from_address' || name === 'to_address') {
+                setCalculatedDistance(null);
+                setDistanceError('');
+            }
+            return newForm;
+        });
+
         // Clear related field error when user starts typing
         if (fieldErrors[name]) {
             setFieldErrors(prev => {
@@ -108,7 +137,7 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                 return newErrors;
             });
         }
-        
+
         // Address autocomplete
         if (name === 'from_address' && value.length >= 3) {
             fetchAddressSuggestions(value);
@@ -122,6 +151,10 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
         const errors = validateField(name, value);
         if (Object.keys(errors).length > 0) {
             setFieldErrors(prev => ({ ...prev, ...errors }));
+        }
+        // Calculate distance when leaving to_address field
+        if (name === 'to_address' && form.from_address && value) {
+            calculateDistance(form.from_address, value);
         }
     };
 
@@ -198,6 +231,42 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                 setForm(prev => ({ ...prev, pincode: details.pincode }));
             }
         } catch (err) {}
+
+        // Trigger distance calculation if both addresses are available
+        if (form.to_address) {
+            setTimeout(() => calculateDistance(form.to_address, suggestion.description), 100);
+        }
+    };
+
+    const calculateDistance = async (fromAddr, toAddr) => {
+        if (!fromAddr || !toAddr) return;
+
+        setCalculatingDistance(true);
+        setDistanceError('');
+        setCalculatedDistance(null);
+
+        try {
+            const res = await api.post('/attendance/address/calculate-distance/', {
+                from_address: fromAddr,
+                to_address: toAddr
+            });
+
+            if (res.data.success) {
+                setCalculatedDistance(res.data.distance_km);
+            } else {
+                setDistanceError(res.data.error || 'Unable to calculate distance');
+            }
+        } catch (err) {
+            setDistanceError(err.response?.data?.error || 'Failed to calculate distance');
+        } finally {
+            setCalculatingDistance(false);
+        }
+    };
+
+    const handleToAddressBlur = () => {
+        if (form.from_address && form.to_address) {
+            calculateDistance(form.from_address, form.to_address);
+        }
     };
 
     const handleSubmit = async () => {
@@ -247,6 +316,14 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
             return;
         }
 
+        // Validate distance is calculated for ADD correction
+        if (form.punchMode === 'single' && form.correction_type === 'ADD') {
+            if (!calculatedDistance) {
+                setError('Please wait for distance to be calculated. Enter both addresses and wait for the calculation to complete.');
+                return;
+            }
+        }
+
         setLoading(true);
         try {
             const payload = {
@@ -260,9 +337,12 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                 payment_method: form.payment_method,
                 from_address: form.from_address,
                 pincode: form.pincode,
+                to_address: form.to_address || null,
+                to_pincode: form.to_pincode || null,
                 punch_sequence: form.punchMode === 'sequence' ? form.punch_sequence : [],
                 reason: form.reason,
                 original_punch_id: form.original_punch_id ? parseInt(form.original_punch_id) : null,
+                calculated_distance: calculatedDistance,
             };
             await api.createCorrectionRequest(payload);
             setSuccess('Correction request submitted successfully!');
@@ -525,7 +605,7 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                         <TextField
                             fullWidth
                             size="small"
-                            label="From Address"
+                            label="From Address (Required)"
                             name="from_address"
                             value={form.from_address}
                             onChange={handleChange}
@@ -557,7 +637,7 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                         <TextField
                             fullWidth
                             size="small"
-                            label="Pincode (Optional)"
+                            label="Pincode (Required with address)"
                             name="pincode"
                             value={form.pincode}
                             onChange={handleChange}
@@ -573,15 +653,61 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                         <TextField
                             fullWidth
                             size="small"
-                            label="To Address (Optional)"
+                            label="To Address (Required)"
                             name="to_address"
                             value={form.to_address}
                             onChange={handleChange}
+                            onBlur={handleBlur}
+                            error={!!fieldErrors.to_address}
+                            helperText={fieldErrors.to_address}
                             placeholder="Enter full address or coordinates (lat, lng)"
                             InputProps={{
                                 startAdornment: <PlaceIcon sx={{ mr: 1, color: 'action.active' }} />,
                             }}
                         />
+                    </Grid>
+
+                    <Grid item xs={6}>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            label="To Pincode (Required with address)"
+                            name="to_pincode"
+                            value={form.to_pincode}
+                            onChange={handleChange}
+                            onBlur={handleBlur}
+                            error={!!fieldErrors.to_pincode}
+                            helperText={fieldErrors.to_pincode || (form.to_pincode.length > 0 && form.to_pincode.length !== 6 ? '6 digits required' : '')}
+                            placeholder="6-digit pincode"
+                            inputProps={{ maxLength: 6 }}
+                        />
+                    </Grid>
+
+                    <Grid item xs={12}>
+                        <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, border: '1px solid', borderColor: calculatedDistance ? 'success.main' : distanceError ? 'error.main' : 'grey.300' }}>
+                            {calculatingDistance ? (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <CircularProgress size={20} />
+                                    <Typography variant="body2">Calculating distance...</Typography>
+                                </Box>
+                            ) : distanceError ? (
+                                <Typography variant="body2" color="error">
+                                    {distanceError}
+                                </Typography>
+                            ) : calculatedDistance ? (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <NavigationIcon color="success" />
+                                    <Typography variant="body1" fontWeight="bold">
+                                        Distance: {calculatedDistance} km
+                                    </Typography>
+                                    <Chip label="Auto-calculated" size="small" color="success" />
+                                </Box>
+                            ) : (
+                                <Typography variant="body2" color="text.secondary">
+                                    Enter both addresses to calculate distance automatically
+                                </Typography>
+                            )}
+                        </Box>
                     </Grid>
 
                     <Grid item xs={12}>
@@ -607,10 +733,10 @@ const CreateCorrectionRequest = ({ open, onClose, onSuccess, editPunch = null })
                 <Button
                     variant="contained"
                     onClick={handleSubmit}
-                    disabled={loading}
+                    disabled={loading || (form.punchMode === 'single' && form.correction_type === 'ADD' && !calculatedDistance)}
                     startIcon={loading ? <CircularProgress size={20} /> : <SendIcon />}
                 >
-                    Submit Request
+                    {form.punchMode === 'single' && form.correction_type === 'ADD' && !calculatedDistance ? 'Calculate Distance First' : 'Submit Request'}
                 </Button>
             </DialogActions>
         </Dialog>
@@ -636,6 +762,20 @@ const CorrectionHistory = ({ corrections }) => {
         }
     };
 
+    const formatAddress = (address, pincode) => {
+        if (!address) return '-';
+        return pincode ? `${address} - ${pincode}` : address;
+    };
+
+    const renderLoanInfo = (corr) => {
+        if (!corr.loan_id && !corr.amount) return '-';
+        const parts = [];
+        if (corr.loan_id) parts.push(`Loan: ${corr.loan_id}`);
+        if (corr.amount) parts.push(`₹${corr.amount}`);
+        if (corr.payment_method) parts.push(corr.payment_method);
+        return parts.join(' | ');
+    };
+
     return (
         <TableContainer component={Paper}>
             <Table size="small">
@@ -646,6 +786,10 @@ const CorrectionHistory = ({ corrections }) => {
                         <TableCell><strong>Time</strong></TableCell>
                         <TableCell><strong>Punch</strong></TableCell>
                         <TableCell><strong>From Address</strong></TableCell>
+                        <TableCell><strong>To Address</strong></TableCell>
+                        <TableCell><strong>Visit Type</strong></TableCell>
+                        <TableCell><strong>Loan ID</strong></TableCell>
+                        <TableCell><strong>Amount</strong></TableCell>
                         <TableCell><strong>Distance</strong></TableCell>
                         <TableCell><strong>Status</strong></TableCell>
                         <TableCell><strong>Submitted</strong></TableCell>
@@ -654,7 +798,7 @@ const CorrectionHistory = ({ corrections }) => {
                 <TableBody>
                     {corrections.length === 0 ? (
                         <TableRow>
-                            <TableCell colSpan={8} sx={{ textAlign: 'center', py: 3 }}>
+                            <TableCell colSpan={12} sx={{ textAlign: 'center', py: 3 }}>
                                 No correction requests found
                             </TableCell>
                         </TableRow>
@@ -679,17 +823,41 @@ const CorrectionHistory = ({ corrections }) => {
                                 </TableCell>
                                 <TableCell>
                                     <Tooltip title={corr.from_address}>
-                                        <Typography variant="body2" sx={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {corr.from_address}
+                                        <Typography variant="body2" sx={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {formatAddress(corr.from_address, corr.pincode)}
                                         </Typography>
                                     </Tooltip>
+                                </TableCell>
+                                <TableCell>
+                                    <Tooltip title={corr.to_address}>
+                                        <Typography variant="body2" sx={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {formatAddress(corr.to_address, corr.to_pincode)}
+                                        </Typography>
+                                    </Tooltip>
+                                </TableCell>
+                                <TableCell>
+                                    <Chip 
+                                        label={corr.visit_type || '-'} 
+                                        size="small" 
+                                        variant="outlined"
+                                    />
+                                </TableCell>
+                                <TableCell>
+                                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                                        {corr.loan_id || '-'}
+                                    </Typography>
+                                </TableCell>
+                                <TableCell>
+                                    <Typography variant="body2" fontWeight={500}>
+                                        {corr.amount ? `₹${corr.amount}` : '-'}
+                                    </Typography>
                                 </TableCell>
                                 <TableCell>{corr.calculated_distance ? `${corr.calculated_distance} km` : '-'}</TableCell>
                                 <TableCell>
                                     <Chip label={corr.status} color={getStatusColor(corr.status)} size="small" />
                                 </TableCell>
                                 <TableCell>
-                                    {new Date(corr.created_at).toLocaleDateString()}
+                                    {corr.created_at ? new Date(corr.created_at).toLocaleDateString() : '-'}
                                 </TableCell>
                             </TableRow>
                         ))
