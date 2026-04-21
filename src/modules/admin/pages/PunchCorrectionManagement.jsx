@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     Box, Typography, Paper, Table, TableHead, TableRow, TableCell,
     TableBody, TableContainer, Button, Chip, Dialog, DialogTitle, DialogContent, DialogActions,
-    TextField, CircularProgress, Grid, Card, CardContent, Divider, Stack, IconButton, Tooltip, Tabs, Tab
+    TextField, CircularProgress, Grid, Card, CardContent, Divider, Stack, IconButton, Tooltip, Tabs, Tab,
+    Select, MenuItem, InputAdornment
 } from '@mui/material';
-import { CheckCircle as ApproveIcon, Cancel as RejectIcon, Visibility as ViewIcon, Refresh as RefreshIcon } from '@mui/icons-material';
+import { CheckCircle as ApproveIcon, Cancel as RejectIcon, Visibility as ViewIcon, Refresh as RefreshIcon, Search as SearchIcon } from '@mui/icons-material';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from 'core/services/api';
@@ -20,6 +21,46 @@ const PunchCorrectionManagement = () => {
     const [remarks, setRemarks] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
 
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterEmployee, setFilterEmployee] = useState('');
+    const [filterType, setFilterType] = useState('ALL');
+    const [filterDateFrom, setFilterDateFrom] = useState('');
+    const [filterDateTo, setFilterDateTo] = useState('');
+
+    const getEmployeeName = (emp) => {
+        if (!emp) return '';
+        return `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.employee_id || '';
+    };
+
+    const getTypeColor = (type) => {
+        switch (type) {
+            case 'ADD':
+            case 'ADD_PUNCH':
+                return 'success';
+            case 'EDIT':
+            case 'EDIT_PUNCH':
+                return 'primary';
+            case 'DELETE':
+            case 'DELETE_PUNCH':
+                return 'error';
+            default:
+                return 'default';
+        }
+    };
+
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'PENDING':
+                return 'warning';
+            case 'APPROVED':
+                return 'success';
+            case 'REJECTED':
+                return 'error';
+            default:
+                return 'default';
+        }
+    };
+
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
@@ -27,10 +68,10 @@ const PunchCorrectionManagement = () => {
                 api.get('/attendance/corrections/').catch(() => ({ data: [] })),
                 api.get('/attendance/correction-requests/').catch(() => ({ data: [] }))
             ]);
-            
+
             const oldData = oldRes?.data?.results || oldRes?.data || [];
             const newData = newRes?.data?.results || newRes?.data || [];
-            
+
             setCorrections(oldData);
             setNewCorrections(newData);
         } catch (err) {
@@ -41,24 +82,6 @@ const PunchCorrectionManagement = () => {
     }, []);
 
     useEffect(() => { fetchData(); }, [fetchData]);
-
-    const getStatusColor = (status) => {
-        switch (status) {
-            case 'PENDING': return 'warning';
-            case 'APPROVED': return 'success';
-            case 'REJECTED': return 'error';
-            default: return 'default';
-        }
-    };
-
-    const getTypeColor = (type) => {
-        switch (type) {
-            case 'ADD': case 'ADD_PUNCH': return 'success';
-            case 'EDIT': case 'EDIT_PUNCH': return 'primary';
-            case 'DELETE': case 'DELETE_PUNCH': return 'error';
-            default: return 'default';
-        }
-    };
 
     const counts = useMemo(() => ({
         old: {
@@ -73,27 +96,77 @@ const PunchCorrectionManagement = () => {
         }
     }), [corrections, newCorrections]);
 
+    const applyFilters = useCallback((data) => {
+        let filtered = [...data];
+
+        if (filterEmployee) {
+            filtered = filtered.filter(c => {
+                const empName = `${c.employee_details?.first_name || ''} ${c.employee_details?.last_name || ''}`.toLowerCase();
+                const empId = c.employee_details?.employee_id || '';
+                return empName.includes(filterEmployee.toLowerCase()) || empId.includes(filterEmployee);
+            });
+        }
+
+        if (filterType !== 'ALL') {
+            filtered = filtered.filter(c => c.correction_type === filterType);
+        }
+
+        if (filterDateFrom) {
+            filtered = filtered.filter(c => new Date(c.correction_date || c.requested_date) >= new Date(filterDateFrom));
+        }
+        if (filterDateTo) {
+            filtered = filtered.filter(c => new Date(c.correction_date || c.requested_date) <= new Date(filterDateTo));
+        }
+
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            filtered = filtered.filter(c => {
+                const fromAddr = (c.from_address || '').toLowerCase();
+                const toAddr = (c.to_address || '').toLowerCase();
+                const loanId = (c.loan_id || '').toLowerCase();
+                const visitType = (c.visit_type || '').toLowerCase();
+                return fromAddr.includes(query) || toAddr.includes(query) || loanId.includes(query) || visitType.includes(query);
+            });
+        }
+
+        return filtered;
+    }, [filterEmployee, filterType, filterDateFrom, filterDateTo, searchQuery]);
+
     const filteredCorrections = useMemo(() => {
         let data = [];
         switch (activeTab) {
-            case 0: data = corrections.filter(c => c.status === 'PENDING'); break;
-            case 1: data = corrections.filter(c => c.status === 'APPROVED'); break;
-            case 2: data = corrections.filter(c => c.status === 'REJECTED'); break;
-            default: data = corrections;
+            case 0:
+                data = corrections.filter(c => c.status === 'PENDING');
+                break;
+            case 1:
+                data = corrections.filter(c => c.status === 'APPROVED');
+                break;
+            case 2:
+                data = corrections.filter(c => c.status === 'REJECTED');
+                break;
+            default:
+                data = corrections;
         }
-        return data;
-    }, [activeTab, corrections]);
+        return applyFilters(data);
+    }, [activeTab, corrections, applyFilters]);
 
     const filteredNewCorrections = useMemo(() => {
         let data = [];
         switch (activeTab) {
-            case 0: data = newCorrections.filter(c => c.status === 'PENDING'); break;
-            case 1: data = newCorrections.filter(c => c.status === 'APPROVED'); break;
-            case 2: data = newCorrections.filter(c => c.status === 'REJECTED'); break;
-            default: data = newCorrections;
+            case 0:
+                data = newCorrections.filter(c => c.status === 'PENDING');
+                break;
+            case 1:
+                data = newCorrections.filter(c => c.status === 'APPROVED');
+                break;
+            case 2:
+                data = newCorrections.filter(c => c.status === 'REJECTED');
+                break;
+            default:
+                data = newCorrections;
         }
-        return data;
-    }, [activeTab, newCorrections]);
+        return applyFilters(data);
+    }, [activeTab, newCorrections, applyFilters]);
 
     const handleAction = async (type, action) => {
         setActionLoading(true);
@@ -119,6 +192,20 @@ const PunchCorrectionManagement = () => {
         }
     };
 
+    const clearFilters = () => {
+        setSearchQuery('');
+        setFilterEmployee('');
+        setFilterType('ALL');
+        setFilterDateFrom('');
+        setFilterDateTo('');
+    };
+
+    const formatAddress = (address, pincode) => {
+        if (!address && !pincode) return 'N/A';
+        if (pincode) return `${address || ''} - ${pincode}`;
+        return address || 'N/A';
+    };
+
     const renderDetailView = () => {
         if (!selected) return null;
         const hasCoords = selected.from_latitude && selected.from_longitude;
@@ -135,7 +222,19 @@ const PunchCorrectionManagement = () => {
                             <Typography><strong>Date:</strong> {selected.correction_date || selected.requested_date}</Typography>
                             <Typography><strong>Time:</strong> {selected.correction_time || selected.requested_time}</Typography>
                             <Typography><strong>Punch Type:</strong> {selected.punch_type || selected.requested_punch_type}</Typography>
+                            <Typography><strong>Visit Type:</strong> {selected.visit_type || '-'}</Typography>
+                            {(selected.loan_id || selected.amount) && (
+                                <Typography>
+                                    <strong>Loan/Disbursement:</strong> {[selected.loan_id && `Loan: ${selected.loan_id}`, selected.amount && `₹${selected.amount}`, selected.payment_method].filter(Boolean).join(' | ')}
+                                </Typography>
+                            )}
                             <Typography><strong>Distance:</strong> {selected.calculated_distance || selected.distance || 0} km</Typography>
+                            <Divider sx={{ my: 1 }} />
+                            <Typography variant="subtitle2" gutterBottom>Address Details</Typography>
+                            <Typography><strong>From:</strong> {formatAddress(selected.from_address, selected.pincode)}</Typography>
+                            {selected.to_address && (
+                                <Typography><strong>To:</strong> {formatAddress(selected.to_address, selected.to_pincode)}</Typography>
+                            )}
                             <Typography sx={{ mt: 1 }}><strong>Reason:</strong> {selected.reason}</Typography>
                             {selected.review_comment && (
                                 <Typography sx={{ mt: 1, color: 'success.main' }}><strong>Admin Comment:</strong> {selected.review_comment}</Typography>
@@ -153,12 +252,12 @@ const PunchCorrectionManagement = () => {
                                     <MapContainer center={[selected.from_latitude, selected.from_longitude]} zoom={14} style={{ height: '100%', width: '100%' }}>
                                         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                                         <Marker position={[selected.from_latitude, selected.from_longitude]}>
-                                            <Popup>From: {selected.from_address}</Popup>
+                                            <Popup>From: {formatAddress(selected.from_address, selected.pincode)}</Popup>
                                         </Marker>
                                         {selected.to_latitude && (
                                             <>
                                                 <Marker position={[selected.to_latitude, selected.to_longitude]}>
-                                                    <Popup>To: {selected.to_address}</Popup>
+                                                    <Popup>To: {formatAddress(selected.to_address, selected.to_pincode)}</Popup>
                                                 </Marker>
                                                 <Polyline positions={[[selected.from_latitude, selected.from_longitude], [selected.to_latitude, selected.to_longitude]]} color="blue" />
                                             </>
@@ -176,7 +275,7 @@ const PunchCorrectionManagement = () => {
     };
 
     if (loading) {
-        return <Box sx={{ p: 3 }}><Typography variant="h5" mb={3}>Punch Corrections</Typography><TableSkeleton rows={6} columns={6} /></Box>;
+        return <Box sx={{ p: 3 }}><Typography variant="h5" mb={3}>Punch Corrections</Typography><TableSkeleton rows={6} columns={10} /></Box>;
     }
 
     return (
@@ -188,6 +287,67 @@ const PunchCorrectionManagement = () => {
                 </Box>
                 <Button variant="outlined" startIcon={<RefreshIcon />} onClick={fetchData}>Refresh</Button>
             </Box>
+
+            <Paper sx={{ p: 2, mb: 2 }}>
+                <Grid container spacing={2} alignItems="center">
+                    <Grid item xs={12} md={3}>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            placeholder="Search address, loan, visit..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            InputProps={{
+                                startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>,
+                            }}
+                        />
+                    </Grid>
+                    <Grid item xs={12} md={2}>
+                        <Select
+                            fullWidth
+                            size="small"
+                            value={filterType}
+                            onChange={(e) => setFilterType(e.target.value)}
+                            displayEmpty
+                        >
+                            <MenuItem value="ALL">All Types</MenuItem>
+                            <MenuItem value="ADD">Add Punch</MenuItem>
+                            <MenuItem value="EDIT">Edit Punch</MenuItem>
+                            <MenuItem value="DELETE">Delete Punch</MenuItem>
+                        </Select>
+                    </Grid>
+                    <Grid item xs={12} md={2}>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            type="date"
+                            label="From Date"
+                            value={filterDateFrom}
+                            onChange={(e) => setFilterDateFrom(e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                        />
+                    </Grid>
+                    <Grid item xs={12} md={2}>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            type="date"
+                            label="To Date"
+                            value={filterDateTo}
+                            onChange={(e) => setFilterDateTo(e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                        />
+                    </Grid>
+                    <Grid item xs={12} md={1}>
+                        <Button variant="text" size="small" onClick={clearFilters}>Clear</Button>
+                    </Grid>
+                    <Grid item xs={12} md={2}>
+                        <Typography variant="body2" color="text.secondary">
+                            Showing: {filteredCorrections.length + filteredNewCorrections.length} records
+                        </Typography>
+                    </Grid>
+                </Grid>
+            </Paper>
 
             <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)} sx={{ mb: 2 }}>
                 <Tab label={<Chip label={`Pending (${counts.old.pending + counts.new.pending})`} color="warning" size="small" />} />
@@ -202,6 +362,10 @@ const PunchCorrectionManagement = () => {
                             <TableCell><strong>Employee</strong></TableCell>
                             <TableCell><strong>Type</strong></TableCell>
                             <TableCell><strong>Date</strong></TableCell>
+                            <TableCell><strong>From Address</strong></TableCell>
+                            <TableCell><strong>To Address</strong></TableCell>
+                            <TableCell><strong>Visit Type</strong></TableCell>
+                            <TableCell><strong>Loan ID</strong></TableCell>
                             <TableCell><strong>Distance</strong></TableCell>
                             <TableCell><strong>Status</strong></TableCell>
                             <TableCell><strong>Actions</strong></TableCell>
@@ -209,15 +373,48 @@ const PunchCorrectionManagement = () => {
                     </TableHead>
                     <TableBody>
                         {filteredCorrections.length === 0 && filteredNewCorrections.length === 0 ? (
-                            <TableRow><TableCell colSpan={6} sx={{ textAlign: 'center', py: 4 }}>No {activeTab === 0 ? 'pending' : activeTab === 1 ? 'approved' : 'rejected'} corrections</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={10} sx={{ textAlign: 'center', py: 4 }}>No {activeTab === 0 ? 'pending' : activeTab === 1 ? 'approved' : 'rejected'} corrections</TableCell></TableRow>
                         ) : (
                             <>
                                 {filteredCorrections.map((corr) => (
                                     <TableRow key={`old-${corr.id}`} hover>
-                                        <TableCell>{corr.employee_details?.first_name} {corr.employee_details?.last_name}</TableCell>
+                                        <TableCell>
+                                            <Typography variant="body2" fontWeight={500}>
+                                                {corr.employee_details?.first_name} {corr.employee_details?.last_name}
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {corr.employee_details?.employee_id}
+                                            </Typography>
+                                        </TableCell>
                                         <TableCell><Chip label={corr.correction_type} color={getTypeColor(corr.correction_type)} size="small" /></TableCell>
                                         <TableCell>{corr.requested_date}</TableCell>
-                                        <TableCell>{corr.distance ? `${corr.distance} km` : '-'}</TableCell>
+                                        <TableCell>
+                                            <Tooltip title={corr.from_address || '-'}>
+                                                <Typography variant="body2" sx={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {corr.from_address ? `${corr.from_address.slice(0, 25)}${corr.from_address.length > 25 ? '...' : ''}` : '-'}
+                                                </Typography>
+                                            </Tooltip>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Tooltip title={corr.to_address || '-'}>
+                                                <Typography variant="body2" sx={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {corr.to_address ? `${corr.to_address.slice(0, 25)}${corr.to_address.length > 25 ? '...' : ''}` : '-'}
+                                                </Typography>
+                                            </Tooltip>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Chip label={corr.visit_type || '-'} size="small" variant="outlined" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                                                {corr.loan_id || '-'}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography variant="body2" fontWeight={500}>
+                                                {corr.distance ? `${corr.distance} km` : '-'}
+                                            </Typography>
+                                        </TableCell>
                                         <TableCell><Chip label={corr.status} color={getStatusColor(corr.status)} size="small" /></TableCell>
                                         <TableCell>
                                             <Stack direction="row" spacing={0.5}>
@@ -234,10 +431,43 @@ const PunchCorrectionManagement = () => {
                                 ))}
                                 {filteredNewCorrections.map((corr) => (
                                     <TableRow key={`new-${corr.id}`} hover>
-                                        <TableCell>{corr.employee_name}</TableCell>
+                                        <TableCell>
+                                            <Typography variant="body2" fontWeight={500}>
+                                                {corr.employee_name || `${corr.employee_details?.first_name} ${corr.employee_details?.last_name}`}
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {corr.employee_details?.employee_id || '-'}
+                                            </Typography>
+                                        </TableCell>
                                         <TableCell><Chip label={corr.correction_type} color={getTypeColor(corr.correction_type)} size="small" /></TableCell>
                                         <TableCell>{corr.correction_date}</TableCell>
-                                        <TableCell>{corr.calculated_distance ? `${corr.calculated_distance} km` : '-'}</TableCell>
+                                        <TableCell>
+                                            <Tooltip title={corr.from_address || '-'}>
+                                                <Typography variant="body2" sx={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {corr.from_address ? `${corr.from_address.slice(0, 25)}${corr.from_address.length > 25 ? '...' : ''}` : '-'}
+                                                </Typography>
+                                            </Tooltip>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Tooltip title={corr.to_address || '-'}>
+                                                <Typography variant="body2" sx={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {corr.to_address ? `${corr.to_address.slice(0, 25)}${corr.to_address.length > 25 ? '...' : ''}` : '-'}
+                                                </Typography>
+                                            </Tooltip>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Chip label={corr.visit_type || '-'} size="small" variant="outlined" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                                                {corr.loan_id || '-'}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography variant="body2" fontWeight={500}>
+                                                {corr.calculated_distance ? `${corr.calculated_distance} km` : '-'}
+                                            </Typography>
+                                        </TableCell>
                                         <TableCell><Chip label={corr.status} color={getStatusColor(corr.status)} size="small" /></TableCell>
                                         <TableCell>
                                             <Stack direction="row" spacing={0.5}>

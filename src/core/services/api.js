@@ -15,23 +15,69 @@ let failedQueue = [];
 const getAccessToken = () => sessionStorage.getItem('access_token');
 const getRefreshToken = () => sessionStorage.getItem('refresh_token');
 
+// Device ID Configuration for Desktop & Mobile App
+// ================================================
+
+// Get platform type (WEB, ANDROID, IOS)
+const getPlatform = () => {
+    const nav = window.navigator;
+    const userAgent = nav.userAgent.toLowerCase();
+    
+    if (/android/i.test(userAgent)) return 'ANDROID';
+    if (/iphone|ipad|ios/i.test(userAgent)) return 'IOS';
+    if (/mobile|webapp/i.test(userAgent)) return 'MOBILE';
+    return 'WEB';
+};
+
+const PLATFORM = getPlatform();
+const isMobileApp = PLATFORM === 'ANDROID' || PLATFORM === 'IOS' || PLATFORM === 'MOBILE';
+
+// Generate unique ID for Web (Desktop)
+const generateWebDeviceId = () => {
+    const nav = window.navigator;
+    const screen = window.screen;
+    
+    // Combine stable browser properties
+    const fingerprint = [
+        nav.userAgent,
+        nav.language,
+        nav.platform,
+        nav.hardwareConcurrency || '1',
+        screen.width,
+        screen.height,
+        screen.colorDepth,
+        screen.pixelDepth,
+        Intl.DateTimeFormat().resolvedOptions().timeZone
+    ].join('|');
+    
+    // Deterministic hash
+    let hash = 0;
+    for (let i = 0; i < fingerprint.length; i++) {
+        const char = fingerprint.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    
+    return 'web_' + Math.abs(hash).toString(16);
+};
+
+// Main device ID getter
 const getDeviceId = () => {
-    let deviceId = sessionStorage.getItem('device_fingerprint');
-    if (!deviceId) {
-        // Generate stable device fingerprint based on browser info
+    // For Mobile App - use Expo/SecureStore device ID (app should handle this)
+    if (isMobileApp) {
+        // Mobile app should set this before login
+        let mobileDeviceId = localStorage.getItem('mobile_device_id');
+        if (mobileDeviceId) return mobileDeviceId;
+        
+        // Fallback: generate from device info
         const nav = window.navigator;
-        const screen = window.screen;
         const fingerprint = [
             nav.userAgent,
-            nav.language,
-            nav.platform,
-            screen.width,
-            screen.height,
-            screen.colorDepth,
-            new Date().getTimezoneOffset()
+            nav.deviceMemory || '4',
+            nav.hardwareConcurrency || '4',
+            nav.platform
         ].join('|');
         
-        // Simple hash function
         let hash = 0;
         for (let i = 0; i < fingerprint.length; i++) {
             const char = fingerprint.charCodeAt(i);
@@ -39,8 +85,27 @@ const getDeviceId = () => {
             hash = hash & hash;
         }
         
-        deviceId = 'web_' + Math.abs(hash).toString(16) + '_' + Date.now().toString(36).substr(0, 8);
-        sessionStorage.setItem('device_fingerprint', deviceId);
+        mobileDeviceId = PLATFORM.toLowerCase() + '_' + Math.abs(hash).toString(16);
+        localStorage.setItem('mobile_device_id', mobileDeviceId);
+        return mobileDeviceId;
+    }
+    
+    // For Desktop/Web - use localStorage (persistent)
+    let deviceId = localStorage.getItem('device_fingerprint');
+    if (!deviceId) {
+        deviceId = generateWebDeviceId();
+        localStorage.setItem('device_fingerprint', deviceId);
+    }
+    
+    return deviceId;
+};
+
+// Get device ID for API calls with platform prefix
+const getApiDeviceId = () => {
+    const deviceId = getDeviceId();
+    // Return with platform prefix if not already present
+    if (isMobileApp && !deviceId.startsWith(PLATFORM.toLowerCase())) {
+        return PLATFORM.toLowerCase() + '_' + deviceId;
     }
     return deviceId;
 };
@@ -249,12 +314,12 @@ class ScalableAPI {
     }
 
     async login(username, password) {
-        const deviceId = getDeviceId();
+        const deviceId = getApiDeviceId();
         
         const res = await axios.post(`${AUTH_URL}/token/`, { username, password }, {
             headers: {
                 'X-DEVICE-ID': deviceId,
-                'X-PLATFORM': 'WEB',
+                'X-PLATFORM': PLATFORM,
                 'X-USER-AGENT': navigator.userAgent || '',
             }
         });
@@ -277,7 +342,8 @@ class ScalableAPI {
         return data;
     }
 
-    logout() {
+logout() {
+        // Clear tokens first
         sessionStorage.removeItem('access_token');
         sessionStorage.removeItem('refresh_token');
         sessionStorage.removeItem('user');
@@ -285,24 +351,31 @@ class ScalableAPI {
         sessionStorage.removeItem('device_info');
         CACHE.invalidate();
         
-        // Call logout API
-        try {
-            const deviceId = localStorage.getItem('device_fingerprint');
-            if (deviceId) {
-                axios.post(`${AUTH_URL}/logout/`, {}, {
-                    headers: {
-                        'X-DEVICE-ID': deviceId,
-                        'X-PLATFORM': 'WEB',
-                    }
-                }).catch(() => {});
-            }
-        } catch (e) {}
-        
-        window.location.replace('/#/login');
+        // Try to call logout API silently
+        const deviceId = getApiDeviceId();
+        if (deviceId && navigator.onLine) {
+            axios.post(`${AUTH_URL}/logout/`, {}, {
+                headers: {
+                    'X-DEVICE-ID': deviceId,
+                    'X-PLATFORM': PLATFORM,
+                }
+            }).then(() => {
+                window.location.replace('/#/login');
+            }).catch(() => {
+                window.location.replace('/#/login');
+            });
+        } else {
+            // If offline or no device, redirect immediately
+            window.location.replace('/#/login');
+        }
     }
-
+    
     getDeviceId() {
-        return getDeviceId();
+        return getApiDeviceId();
+    }
+    
+    getPlatform() {
+        return PLATFORM;
     }
 
     async getCurrentUser() {
@@ -643,6 +716,13 @@ class ScalableAPI {
 
     getAddressDetails(placeId) {
         return this.get(`/attendance/address/details/${placeId}/`);
+    }
+
+    calculateDistance(fromAddress, toAddress) {
+        return this.post('/attendance/address/calculate-distance/', {
+            from_address: fromAddress,
+            to_address: toAddress
+        });
     }
 
     // Designation Master
